@@ -5,8 +5,9 @@ import type { World, Rect } from "./world";
 import type { Door, NoiseEmitter } from "./door";
 import { registry } from "./save";
 import { sfx } from "./audio";
+import { getCode } from "./layout";
 
-/** Código del teclado: la hora de ingreso de la ficha de admisión. */
+/** Código por defecto. En cada partida nueva se genera uno distinto (ver layout.ts). */
 export const KEYPAD_CODE = "0317";
 const KEYPAD_NOISE = 8;
 /** Orden correcto de los tubos. Lo dice el cartel del laboratorio. */
@@ -72,7 +73,7 @@ export class Keypad implements Interactable {
   }
 
   check(entry: string): KeypadCheck {
-    if (entry === KEYPAD_CODE) {
+    if (entry === getCode()) {
       this.solved = true;
       sfx.lock();
       return { ok: true, message: "Clic. La cerradura cede." };

@@ -6,28 +6,43 @@ import { ITEMS } from "./items";
 import type { Inventory } from "./inventory";
 import { registry, setFlag } from "./save";
 import { sfx } from "./audio";
+import { assignSpots, formatTime, getCode, type SpotPool } from "./layout";
 
 const DRAWER_TRAVEL = 0.35;
 
 /** Objeto que se recoge al pulsar E. Desaparece y entra en el inventario. */
-class Pickup implements Interactable {
+/** Orden de creación de los objetos recogibles: identifica cada uno en el guardado. */
+let pickupSeq = 0;
+
+export class Pickup implements Interactable {
   private collected = false;
+  private readonly baseY: number;
 
   constructor(
     private readonly id: string,
     private readonly inventory: Inventory,
     private readonly visual: THREE.Mesh,
     private readonly hitbox: THREE.Mesh,
+    /** Zona donde puede aparecer en cada partida nueva. null si la posición es fija. */
+    readonly pool: SpotPool | null,
   ) {
-    const key = `pickup:${id}:${visual.position.x},${visual.position.z}`;
+    this.baseY = visual.position.y;
+    const key = `pickup:${pickupSeq++}:${id}`;
     registry.register(
       key,
-      () => this.collected,
+      () => ({ collected: this.collected, x: this.visual.position.x, z: this.visual.position.z }),
       (v) => {
-        this.collected = v === true;
-        this.visual.visible = !this.collected;
+        const s = v as { collected: boolean; x: number; z: number };
+        this.collected = s.collected;
+        this.visual.visible = !s.collected;
+        this.moveTo(s.x, s.z);
       },
     );
+  }
+
+  moveTo(x: number, z: number): void {
+    this.visual.position.set(x, this.baseY, z);
+    this.hitbox.position.set(x, this.baseY, z);
   }
 
   get targets(): THREE.Object3D[] {
@@ -130,7 +145,7 @@ class Computer implements Interactable {
     private readonly screen: THREE.MeshStandardMaterial,
     private readonly world: World,
     hitbox: THREE.Mesh,
-    private readonly text: string,
+    private readonly text: () => string,
   ) {
     this.targets = [hitbox];
     registry.register(
@@ -153,7 +168,7 @@ class Computer implements Interactable {
       setFlag("computerRead");
       sfx.beep();
     }
-    return this.on ? this.text : null;
+    return this.on ? this.text() : null;
   }
 
   update(): void {
@@ -184,7 +199,8 @@ function addPickup(
   visualGeo: THREE.BufferGeometry,
   visualMat: THREE.Material,
   pos: [number, number, number],
-  rotZ = 0,
+  rotZ: number,
+  pool: SpotPool | null,
 ): Pickup {
   const visual = new THREE.Mesh(visualGeo, visualMat);
   visual.position.set(...pos);
@@ -198,7 +214,17 @@ function addPickup(
   hitbox.position.set(...pos);
   scene.add(hitbox);
 
-  return new Pickup(id, inventory, visual, hitbox);
+  return new Pickup(id, inventory, visual, hitbox, pool);
+}
+
+/**
+ * Reparte los objetos recogibles por el escenario para una partida nueva.
+ * Los que tienen zona fija (el botiquín del quirófano) no se mueven.
+ */
+export function randomizePickups(items: Interactable[], rng: () => number = Math.random): void {
+  const pickups = items.filter((i): i is Pickup => i instanceof Pickup && i.pool !== null);
+  const spots = assignSpots(pickups.map((p) => p.pool as SpotPool), rng);
+  pickups.forEach((p, k) => p.moveTo(spots[k].x, spots[k].z));
 }
 
 /** Crea todos los objetos interactuables del hospital y los coloca en el escenario. */
@@ -253,7 +279,8 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
       world.computerScreen,
       world,
       hitbox,
-      "REGISTRO DE PACIENTES. Última entrada, 03:12: paciente 7 trasladado al sótano. Paciente 7: ingresó a las 03:17. Firma de ingreso: tu nombre.",
+      () =>
+        `REGISTRO DE PACIENTES. Última entrada, 03:12: paciente 7 trasladado al sótano. Paciente 7: ingresó a las ${formatTime(getCode())}. Firma de ingreso: tu nombre.`,
     ),
   );
 
@@ -266,25 +293,25 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
   const cardMat = new THREE.MeshStandardMaterial({ color: "#2a2f36", metalness: 0.3, roughness: 0.4 });
   const note = new THREE.BoxGeometry(0.2, 0.005, 0.15);
 
-  items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-0.6, 0.03, -10], Math.PI / 2));
-  items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-7.6, 1.63, -10.3], Math.PI / 2));
-  items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [6.0, 0.78, -12.4], Math.PI / 2));
-  // Ficha de admisión y tarjeta: en la habitación A, junto a la entrada desde el pasillo
-  items.push(addPickup(scene, inventory, "doc_admision", doc, paperMat, [-3.2, 0.004, -7.0]));
-  items.push(addPickup(scene, inventory, "doc_guardia", doc, paperMat, [-6.6, 0.004, -18.0]));
-  items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [-3.2, 0.005, -9.5]));
-  items.push(addPickup(scene, inventory, "pista_papel", note, paperMat, [0.6, 0.004, -0.5]));
+  // Las pilas, la ficha, la tarjeta, la nota y la pista cambian de sitio en cada partida.
+  for (let k = 0; k < 3; k++) {
+    items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [0, 0.03, 0], Math.PI / 2, "any"));
+  }
+  items.push(addPickup(scene, inventory, "doc_admision", doc, paperMat, [0, 0.004, 0], 0, "access"));
+  items.push(addPickup(scene, inventory, "doc_guardia", doc, paperMat, [0, 0.004, 0], 0, "access"));
+  items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [0, 0.005, 0], 0, "access"));
+  items.push(addPickup(scene, inventory, "pista_papel", note, paperMat, [0, 0.004, 0], 0, "access"));
 
   // Botiquines: se guardan en el inventario y se usan cuando haga falta
   const kitMat = new THREE.MeshStandardMaterial({ color: "#e8e6e0", roughness: 0.6 });
   const kit = new THREE.BoxGeometry(0.2, 0.1, 0.14);
-  for (const pos of [
-    [1.2, 0.05, -15.5],
-    [5.1, 0.95, -25.4],
-    [-5.8, 0.05, -19.5],
-  ] as [number, number, number][]) {
-    items.push(addPickup(scene, inventory, "botiquin", kit, kitMat, pos));
-  }
+  // Dos botiquines por el mapa (cambian de sitio); uno fijo en la mesa del quirófano.
+  items.push(addPickup(scene, inventory, "botiquin", kit, kitMat, [0, 0.05, 0], 0, "access"));
+  items.push(addPickup(scene, inventory, "botiquin", kit, kitMat, [0, 0.05, 0], 0, "access"));
+  items.push(addPickup(scene, inventory, "botiquin", kit, kitMat, [5.1, 0.95, -25.4], 0, null));
+
+  // Posición inicial repartida: el guardado y las partidas nuevas la sobrescriben
+  randomizePickups(items);
 
   return { items, doors };
 }

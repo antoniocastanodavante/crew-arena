@@ -4,7 +4,8 @@ import { Player, MAX_HEALTH } from "./player";
 import { Flashlight } from "./flashlight";
 import { Input } from "./input";
 import { Interactor } from "./interact";
-import { createInteractables } from "./interactables";
+import { createInteractables, randomizePickups } from "./interactables";
+import { rollCode, setCode } from "./layout";
 import { Inventory } from "./inventory";
 import { InventoryUI } from "./inventory-ui";
 import { NoiseBus } from "./noise";
@@ -275,6 +276,9 @@ function showMenu(): void {
 function startGame(fresh: boolean): void {
   if (fresh) {
     registry.reset();
+    // Partida nueva: código de la hora de ingreso y objetos en sitios distintos.
+    setCode(rollCode());
+    randomizePickups(interactables);
   } else if (!loadGame()) {
     notify("No hay partida guardada.");
     return;
