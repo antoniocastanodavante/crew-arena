@@ -8,6 +8,7 @@ import { createInteractables } from "./interactables";
 import { Inventory } from "./inventory";
 import { InventoryUI } from "./inventory-ui";
 import { NoiseBus } from "./noise";
+import { createHidingSpots } from "./hiding";
 import { Watcher, type PlayerView } from "./watcher";
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -63,7 +64,7 @@ function notify(text: string): void {
 
 const noiseBus = new NoiseBus();
 
-const { items: interactables, doors } = createInteractables({
+const { items, doors } = createInteractables({
   scene,
   rects: world.rects,
   world,
@@ -71,6 +72,10 @@ const { items: interactables, doors } = createInteractables({
   inventory,
   noise: (x, z, r) => noiseBus.emit(x, z, r),
 });
+const interactables = [
+  ...items,
+  ...createHidingSpots({ scene, rects: world.rects, player }),
+];
 
 const playerView: PlayerView = {
   position: player.position,
@@ -150,9 +155,13 @@ const input = new Input(canvas, {
       return;
     }
     if (!running) return;
-    if (code === "KeyF") flashlight.toggle();
-    if (code === "KeyE") interactor.use();
-    if (code === "KeyI") openInventory();
+    if (code === "KeyF" && !player.hidden) flashlight.toggle();
+    if (code === "KeyE") {
+      // Dentro de un escondite, E sirve para salir.
+      if (player.hidden) player.unhide();
+      else interactor.use();
+    }
+    if (code === "KeyI" && !player.hidden) openInventory();
   },
 });
 
@@ -182,8 +191,15 @@ function frame(): void {
 
   if (running) {
     player.update(dt, input);
+    if (player.hidden) {
+      // Dentro del escondite la linterna se apaga: la luz delataría al jugador.
+      flashlight.on = false;
+      promptEl.textContent = "Pulsa E para salir del escondite";
+      promptEl.hidden = false;
+    } else {
+      interactor.update(camera);
+    }
     flashlight.update(dt, t);
-    interactor.update(camera);
 
     footstepTimer = player.sprinting ? footstepTimer + dt : 0;
     if (footstepTimer > 0.6) {
