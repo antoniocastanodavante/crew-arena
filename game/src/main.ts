@@ -145,8 +145,10 @@ registry.captureInitial();
 let footstepTimer = 0;
 const interactor = new Interactor(interactables, {
   onPrompt: (text) => {
-    promptEl.textContent = text ?? "";
-    promptEl.hidden = text === null;
+    // Solo se toca el DOM cuando cambia la pista (esto se llama cada frame).
+    const next = text ?? "";
+    if (promptEl.textContent !== next) promptEl.textContent = next;
+    if (promptEl.hidden !== (text === null)) promptEl.hidden = text === null;
   },
   onMessage: notify,
 });
@@ -505,10 +507,38 @@ function frame(): void {
   for (const item of interactables) item.update?.(dt);
   world.update(t);
 
-  batteryFill.style.width = `${flashlight.battery}%`;
+  const width = `${Math.round(flashlight.battery)}%`;
+  if (batteryFill.style.width !== width) batteryFill.style.width = width;
   batteryFill.classList.toggle("low", flashlight.isLow);
 
   renderer.render(scene, camera);
+}
+
+// Modo de pruebas: ?debug expone el estado y atajos para probar sin recorrer todo el mapa.
+if (new URLSearchParams(location.search).has("debug")) {
+  const dbg = {
+    state: () => ({
+      started,
+      running,
+      panel: panelOpen?.id ?? null,
+      x: player.position.x,
+      z: player.position.z,
+      hidden: player.hidden,
+      battery: flashlight.battery,
+      flashlightOn: flashlight.on,
+      powered: world.isPowered(),
+      fuse: world.hasFuse(),
+      watcher: watcher.state,
+      items: inventory.list().map((e) => `${e.id}x${e.count}`),
+      message: messageEl.hidden ? null : messageEl.textContent,
+      ending: !endingRoot.hidden,
+    }),
+    teleport: (x: number, z: number) => player.resetTo(x, z),
+    look: (yaw: number, pitch: number) => player.setLook(yaw, pitch),
+    give: (id: string) => inventory.add(id),
+    newGame: () => startGame(true),
+  };
+  (window as unknown as { __shadows: typeof dbg }).__shadows = dbg;
 }
 
 showMenu();
