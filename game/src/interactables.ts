@@ -5,6 +5,7 @@ import { Door, type NoiseEmitter } from "./door";
 import { ITEMS } from "./items";
 import type { Inventory } from "./inventory";
 import { registry, setFlag } from "./save";
+import { sfx } from "./audio";
 
 const DRAWER_TRAVEL = 0.35;
 
@@ -42,6 +43,7 @@ class Pickup implements Interactable {
     this.collected = true;
     this.visual.visible = false;
     this.inventory.add(this.id);
+    sfx.pickup();
     return `Has recogido: ${ITEMS[this.id].name}.`;
   }
 }
@@ -80,6 +82,7 @@ class Drawer implements Interactable {
 
   use(): string | null {
     this.open = !this.open;
+    sfx.drawer();
     if (this.open && !this.seen) {
       this.seen = true;
       return this.firstOpenText;
@@ -112,6 +115,7 @@ class PowerSwitch implements Interactable {
   use(): string {
     const on = !this.world.isPowered();
     if (on && !this.world.hasFuse()) return "No responde. Falta el fusible en la caja.";
+    sfx.click();
     this.world.setPower(on);
     return on ? "La luz general vuelve a funcionar." : "Se hace la oscuridad.";
   }
@@ -145,7 +149,10 @@ class Computer implements Interactable {
   use(): string | null {
     if (!this.on && !this.world.isPowered()) return "No hay corriente.";
     this.on = !this.on;
-    if (this.on) setFlag("computerRead");
+    if (this.on) {
+      setFlag("computerRead");
+      sfx.beep();
+    }
     return this.on ? this.text : null;
   }
 

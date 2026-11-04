@@ -27,6 +27,7 @@ import {
   type Settings,
 } from "./save";
 import { ENDING_TEXT } from "./endings";
+import { sfx, type Zone } from "./audio";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -130,7 +131,10 @@ const watcher = new Watcher({
   rects: world.rects,
   doors,
   player: playerView,
-  onCatch: () => showDeath(),
+  onCatch: () => {
+    sfx.hit();
+    showDeath();
+  },
 });
 noiseBus.on((x, z, r) => watcher.hear(x, z, r));
 
@@ -239,6 +243,7 @@ function startGame(fresh: boolean): void {
   started = true;
   running = true;
   hud.hidden = false;
+  sfx.start();
   input.requestLock();
 }
 
@@ -246,6 +251,7 @@ function showPause(): void {
   hideAllScreens();
   running = false;
   pauseRoot.hidden = false;
+  sfx.suspend();
 }
 
 function showDeath(): void {
@@ -255,6 +261,7 @@ function showDeath(): void {
 
 function showEnding(kind: EndingId): void {
   recordEnding(kind);
+  sfx.stinger();
   byId<HTMLElement>("ending-title").textContent = ENDING_TEXT[kind].title;
   byId<HTMLElement>("ending-text").textContent = ENDING_TEXT[kind].text;
   openPanel(endingRoot);
@@ -291,13 +298,25 @@ function applySettings(s: Settings): void {
   currentSettings = s;
   player.sensitivity = s.sensitivity;
   player.bobScale = s.reduceMotion ? 0 : 1;
+  sfx.setVolume(s.volume);
+  document.body.classList.toggle("reduce-motion", s.reduceMotion);
 }
 
 function syncSettingsUI(s: Settings): void {
   const range = byId<HTMLInputElement>("set-sensitivity");
   range.value = String(s.sensitivity);
   byId<HTMLElement>("set-sensitivity-value").textContent = `${s.sensitivity.toFixed(1)}×`;
+  byId<HTMLInputElement>("set-volume").value = String(s.volume);
+  byId<HTMLElement>("set-volume-value").textContent = `${Math.round(s.volume * 100)} %`;
   byId<HTMLInputElement>("set-reduce-motion").checked = s.reduceMotion;
+}
+
+/** Zona según la posición: cambia el ambiente sonoro. */
+function zoneAt(x: number, z: number, hidden: boolean): Zone {
+  if (hidden) return "escondite";
+  if (x > 2 && z < -22) return "quirofano";
+  if ((x < -2 || x > 2) && z < -4) return "habitacion";
+  return "pasillo";
 }
 
 byId<HTMLInputElement>("set-sensitivity").addEventListener("input", (e) => {
@@ -306,6 +325,14 @@ byId<HTMLInputElement>("set-sensitivity").addEventListener("input", (e) => {
   applySettings(next);
   saveSettings(next);
   byId<HTMLElement>("set-sensitivity-value").textContent = `${value.toFixed(1)}×`;
+});
+
+byId<HTMLInputElement>("set-volume").addEventListener("input", (e) => {
+  const value = Number((e.target as HTMLInputElement).value);
+  const next = { ...currentSettings, volume: value };
+  applySettings(next);
+  saveSettings(next);
+  byId<HTMLElement>("set-volume-value").textContent = `${Math.round(value * 100)} %`;
 });
 
 byId<HTMLInputElement>("set-reduce-motion").addEventListener("change", (e) => {
@@ -357,6 +384,7 @@ byId<HTMLButtonElement>("menu-endings-btn").addEventListener("click", () => show
 byId<HTMLButtonElement>("resume-btn").addEventListener("click", () => {
   pauseRoot.hidden = true;
   running = true;
+  sfx.resume();
   input.requestLock();
 });
 byId<HTMLButtonElement>("save-btn").addEventListener("click", () => {
@@ -401,6 +429,11 @@ function checkExit(): void {
 }
 
 const clock = new THREE.Clock();
+let stepTimer = 0;
+
+function settingsReduceMotion(): boolean {
+  return currentSettings.reduceMotion;
+}
 
 function frame(): void {
   requestAnimationFrame(frame);
@@ -410,6 +443,17 @@ function frame(): void {
 
   if (running) {
     player.update(dt, input);
+    sfx.setListener(player.position.x, player.position.z, player.facing);
+    if (player.moving && !player.hidden) {
+      stepTimer += dt;
+      const interval = player.sprinting ? 0.32 : player.crouching ? 0.7 : 0.5;
+      if (stepTimer > interval) {
+        stepTimer = 0;
+        sfx.step(player.sprinting, player.crouching);
+      }
+    } else {
+      stepTimer = 0;
+    }
     if (player.hidden) {
       // Dentro del escondite la linterna se apaga: la luz delataría al jugador.
       flashlight.on = false;
@@ -428,7 +472,36 @@ function frame(): void {
 
     watcher.update(dt, t);
     checkExit();
+
+    // Sacudida de cámara cuando te persigue de cerca
+    if (watcher.state === "chase" && !player.hidden) {
+      const d = Math.hypot(watcher.x - player.position.x, watcher.z - player.position.z);
+      if (d < 6 && !settingsReduceMotion()) {
+        const amp = 0.02 * (1 - d / 6);
+        camera.position.x += (Math.random() - 0.5) * amp;
+        camera.position.y += (Math.random() - 0.5) * amp;
+      }
+    }
   }
+
+  // Tensión: el monstruo cerca o persiguiendo sube la música y el latido.
+  const dWatch = Math.hypot(watcher.x - player.position.x, watcher.z - player.position.z);
+  const tension =
+    watcher.state === "chase"
+      ? 1
+      : watcher.state === "investigate"
+        ? 0.5
+        : watcher.state === "search"
+          ? 0.4
+          : Math.max(0, Math.min(0.3, 1 - dWatch / 15));
+  sfx.update(dt, {
+    zone: zoneAt(player.position.x, player.position.z, player.hidden),
+    tension,
+    sprinting: player.sprinting,
+    hidden: player.hidden,
+  });
+  document.body.classList.toggle("tense", tension > 0.6 && !settingsReduceMotion());
+
   for (const item of interactables) item.update?.(dt);
   world.update(t);
 

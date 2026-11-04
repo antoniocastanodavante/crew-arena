@@ -4,6 +4,7 @@ import type { Door } from "./door";
 import { createWatcherModel, type WatcherRig } from "./watcher-model";
 import { circleBlocked, lineClear } from "./collision";
 import { registry } from "./save";
+import { sfx } from "./audio";
 
 export type WatcherState = "patrol" | "investigate" | "chase" | "search";
 
@@ -83,6 +84,7 @@ export class Watcher {
   private stuckT = 0;
   private yaw = 0;
   private animT = 0;
+  private stepT = 0;
   private moveSpeed = 0;
 
   constructor(private readonly deps: WatcherDeps) {
@@ -130,6 +132,7 @@ export class Watcher {
       if (this._state !== "chase") {
         this._state = "chase";
         this.target = null;
+        sfx.alertAt(this.x, this.z);
       }
     }
 
@@ -352,5 +355,15 @@ export class Watcher {
     rig.head.rotation.x = chasing ? 0.25 : 0.1;
 
     rig.root.rotation.y = this.yaw;
+
+    // Pasos pesados: se oyen más rápido cuando corre.
+    if (this.moveSpeed > 0.2) {
+      this.stepT += dt;
+      const interval = chasing ? 0.35 : 0.6;
+      if (this.stepT > interval) {
+        this.stepT = 0;
+        sfx.monsterStep(this.x, this.z);
+      }
+    }
   }
 }

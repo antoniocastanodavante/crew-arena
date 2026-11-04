@@ -73,6 +73,11 @@ export class Player {
     return this._hidden;
   }
 
+  /** Giro horizontal de la cámara, para el sonido espacial. */
+  get facing(): number {
+    return this.yaw;
+  }
+
   get hidingSpot(): HideSpot | null {
     return this.hideSpot;
   }

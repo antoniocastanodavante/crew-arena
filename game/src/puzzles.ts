@@ -4,6 +4,7 @@ import type { Inventory } from "./inventory";
 import type { World, Rect } from "./world";
 import type { Door, NoiseEmitter } from "./door";
 import { registry } from "./save";
+import { sfx } from "./audio";
 
 /** Código del teclado: la hora de ingreso de la ficha de admisión. */
 export const KEYPAD_CODE = "0317";
@@ -73,9 +74,11 @@ export class Keypad implements Interactable {
   check(entry: string): KeypadCheck {
     if (entry === KEYPAD_CODE) {
       this.solved = true;
+      sfx.lock();
       return { ok: true, message: "Clic. La cerradura cede." };
     }
     // Un código malo hace ruido: algo al otro lado se mueve.
+    sfx.buzz();
     this.noise(this.at.x, this.at.z, KEYPAD_NOISE);
     return { ok: false, message: "Código incorrecto. Algo se mueve al otro lado." };
   }
@@ -101,6 +104,7 @@ class FuseBox implements Interactable {
     if (this.world.hasFuse()) return null;
     if (!this.inventory.remove("fusible")) return "La caja está vacía. Falta un fusible.";
     this.world.installFuse();
+    sfx.metal();
     return "El fusible encaja. Vuelve la luz.";
   }
 }
@@ -185,6 +189,7 @@ class Tube implements Interactable {
   }
 
   use(): string | null {
+    sfx.click();
     return this.puzzle.press(this.color) || null;
   }
 }

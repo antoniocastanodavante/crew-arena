@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { Rect } from "./world";
 import type { Interactable } from "./interact";
 import { registry } from "./save";
+import { sfx } from "./audio";
 
 const OPEN_ANGLE = Math.PI * 0.5 * 0.9;
 const WALL_MARGIN = 0.1;
@@ -122,6 +123,7 @@ export class Door implements Interactable {
       if (this.playerNearDoorway()) return "No puedes cerrarla ahí.";
       this.isOpen = false;
       this.rects.push(this.closedRect);
+      sfx.door();
     } else {
       if (this.gate) {
         const blocked = this.gate();
@@ -138,6 +140,7 @@ export class Door implements Interactable {
   open(): void {
     if (this.isOpen || this.gate) return;
     this.isOpen = true;
+    sfx.door();
     const i = this.rects.indexOf(this.closedRect);
     if (i >= 0) this.rects.splice(i, 1);
   }

@@ -128,11 +128,13 @@ export function decideEnding(docs: { admision: boolean; guardia: boolean }, comp
 export interface Settings {
   /** Multiplicador de la sensibilidad del ratón. */
   sensitivity: number;
-  /** Quita el balanceo de la cámara al andar. */
+  /** Quita el balanceo de la cámara y los efectos de movimiento. */
   reduceMotion: boolean;
+  /** Volumen general, de 0 a 1. */
+  volume: number;
 }
 
-const DEFAULT_SETTINGS: Settings = { sensitivity: 1, reduceMotion: false };
+const DEFAULT_SETTINGS: Settings = { sensitivity: 1, reduceMotion: false, volume: 0.8 };
 
 export function loadSettings(): Settings {
   const raw = storage()?.getItem(SETTINGS_KEY);
@@ -142,6 +144,7 @@ export function loadSettings(): Settings {
     return {
       sensitivity: typeof s.sensitivity === "number" ? s.sensitivity : DEFAULT_SETTINGS.sensitivity,
       reduceMotion: s.reduceMotion === true,
+      volume: typeof s.volume === "number" ? s.volume : DEFAULT_SETTINGS.volume,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
