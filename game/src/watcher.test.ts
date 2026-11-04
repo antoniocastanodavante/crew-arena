@@ -12,8 +12,9 @@ function setup(rects: Rect[] = [], flashlightOn = false) {
     flashlightOn,
   };
   const onCatch = vi.fn();
-  const watcher = new Watcher({ scene, rects, doors: [], player, onCatch });
-  return { watcher, player, onCatch };
+  const onScare = vi.fn();
+  const watcher = new Watcher({ scene, rects, doors: [], player, onCatch, onScare });
+  return { watcher, player, onCatch, onScare };
 }
 
 function run(w: Watcher, seconds: number): void {
@@ -75,14 +76,28 @@ describe("Watcher", () => {
     expect(watcher.state).toBe("search");
   });
 
-  it("calls onCatch when it reaches a chased player and resets", () => {
-    const { watcher, player, onCatch } = setup([], false);
+  it("needs three scares before the player dies, then resets", () => {
+    // Números fijos para que el test sea reproducible.
+    const spy = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const { watcher, player, onCatch, onScare } = setup([], false);
     player.position.set(0, 0, -12);
-    // Avanza frame a frame hasta la captura y mira el estado en ese mismo frame.
-    for (let i = 0; i < 600 && onCatch.mock.calls.length === 0; i++) {
-      watcher.update(1 / 60, i / 60);
+    let frames = 0;
+    while (onCatch.mock.calls.length === 0 && frames < 60 * 200) {
+      watcher.update(1 / 60, frames / 60);
+      frames++;
     }
+    spy.mockRestore();
     expect(onCatch).toHaveBeenCalledTimes(1);
+    expect(onScare).toHaveBeenCalledTimes(3);
     expect(watcher.state).toBe("patrol");
+  });
+
+  it("stays invisible between scares", () => {
+    const { watcher, player } = setup([], false);
+    player.position.set(0, 0, -12);
+    // Persigue sin que le dé tiempo a aparecer: el primer susto llega a los 5 s.
+    run(watcher, 0.5);
+    expect(watcher.state).toBe("chase");
+    expect(watcher.visible).toBe(false);
   });
 });

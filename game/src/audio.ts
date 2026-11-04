@@ -130,6 +130,12 @@ export class GameAudio {
     this.tone("sine", 1200, 1200, 0.1, 0.06, null, 0);
   }
 
+  /** Aparición del monstruo: golpe agudo y ruido seco. */
+  scare(): void {
+    this.noiseHit("highpass", 2000, 1, 0.5, 0.25, null);
+    this.tone("sawtooth", 900, 200, 0.4, 0.25, null, 0);
+  }
+
   /** Golpe al ser atrapado. */
   hit(): void {
     this.tone("sine", 55, 30, 0.6, 0.5, null, 0);

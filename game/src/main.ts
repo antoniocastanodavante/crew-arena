@@ -126,7 +126,22 @@ const playerView: PlayerView = {
   get flashlightOn() {
     return flashlight.on;
   },
+  get facing() {
+    return player.facing;
+  },
 };
+
+/** Tiempo que dura la sacudida tras una aparición. */
+let scareShake = 0;
+const crosshairEl = byId<HTMLDivElement>("crosshair");
+const flashEl = byId<HTMLDivElement>("scare-flash");
+
+function scareFlash(): void {
+  // Reinicia la animación aunque ya estuviera corriendo.
+  flashEl.classList.remove("go");
+  void flashEl.offsetWidth;
+  flashEl.classList.add("go");
+}
 
 const watcher = new Watcher({
   scene,
@@ -136,6 +151,10 @@ const watcher = new Watcher({
   onCatch: () => {
     sfx.hit();
     showDeath();
+  },
+  onScare: () => {
+    scareFlash();
+    scareShake = 0.9;
   },
 });
 noiseBus.on((x, z, r) => watcher.hear(x, z, r));
@@ -151,6 +170,8 @@ const interactor = new Interactor(interactables, {
     const next = text ?? "";
     if (promptEl.textContent !== next) promptEl.textContent = next;
     if (promptEl.hidden !== (text === null)) promptEl.hidden = text === null;
+    // La mirilla se pone verde si lo que miras se puede usar.
+    crosshairEl.classList.toggle("hit", text !== null);
   },
   onMessage: notify,
 });
@@ -477,16 +498,15 @@ function frame(): void {
     watcher.update(dt, t);
     checkExit();
 
-    // Sacudida de cámara cuando te persigue de cerca
-    if (watcher.state === "chase" && !player.hidden) {
-      const d = Math.hypot(watcher.x - player.position.x, watcher.z - player.position.z);
-      if (d < 6 && !settingsReduceMotion()) {
-        const amp = 0.02 * (1 - d / 6);
-        camera.position.x += (Math.random() - 0.5) * amp;
-        camera.position.y += (Math.random() - 0.5) * amp;
-      }
+    // Sacudida: fuerte al aparecer, suave mientras te persigue de cerca.
+    if (scareShake > 0 && !settingsReduceMotion()) {
+      const amp = 0.08 * scareShake;
+      camera.position.x += (Math.random() - 0.5) * amp;
+      camera.position.y += (Math.random() - 0.5) * amp;
     }
+    scareShake = Math.max(0, scareShake - dt);
   }
+  crosshairEl.hidden = hud.hidden;
 
   // Tensión: el monstruo cerca o persiguiendo sube la música y el latido.
   const dWatch = Math.hypot(watcher.x - player.position.x, watcher.z - player.position.z);

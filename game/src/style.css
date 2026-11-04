@@ -372,6 +372,68 @@ body.reduce-motion #grain {
   display: none;
 }
 
+/* Mirilla en el centro: marca a qué apuntas. Se pone verde si hay algo que usar. */
+#crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(230, 225, 211, 0.75);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+#crosshair::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(230, 225, 211, 0.9);
+}
+
+#crosshair.hit {
+  border-color: #9ff5a8;
+  box-shadow: 0 0 8px rgba(159, 245, 168, 0.5);
+}
+
+#crosshair.hit::after {
+  background: #9ff5a8;
+}
+
+/* Destello blanco-rojo cuando aparece el monstruo */
+#scare-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(255, 245, 235, 0.7), rgba(120, 0, 0, 0.35) 55%, transparent 80%);
+}
+
+#scare-flash.go {
+  animation: scare-flash 0.45s ease-out;
+}
+
+@keyframes scare-flash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+body.reduce-motion #scare-flash.go {
+  animation-duration: 0.01s;
+}
+
 @keyframes blink {
   50% {
     opacity: 0.25;

@@ -13,6 +13,8 @@ export interface PlayerView {
   readonly position: THREE.Vector3;
   readonly hidden: boolean;
   readonly flashlightOn: boolean;
+  /** Giro horizontal del jugador: el monstruo aparece delante de su cara. */
+  readonly facing?: number;
 }
 
 export interface WatcherDeps {
@@ -20,7 +22,10 @@ export interface WatcherDeps {
   rects: Rect[];
   doors: Door[];
   player: PlayerView;
+  /** Muerte: tras el último susto. */
   onCatch(): void;
+  /** Cada vez que aparece en la cara del jugador. Recibe el número de sustos. */
+  onScare?(strikes: number): void;
 }
 
 interface Point {
@@ -68,6 +73,18 @@ const SEARCH_TIME = 10;
 const SEARCH_RADIUS = 3.5;
 const STUCK_TIME = 1.2;
 
+/*
+ * Apariciones: el monstruo es invisible casi siempre. Cuando te persigue de cerca
+ * aparece un momento delante de tu cara. Hace falta varias apariciones para morir.
+ */
+const MANIFEST_TIME = 1.6;
+const MANIFEST_RANGE = 8;
+const FACE_DIST = 0.9;
+const MAX_STRIKES = 3;
+const FIRST_COOLDOWN = 5;
+const COOLDOWN_MIN = 7;
+const COOLDOWN_MAX = 14;
+
 /**
  * THE WATCHER. Máquina de estados:
  * patrol -> investigate (oye un ruido) -> chase (lo ve) -> search (lo pierde) -> patrol.
@@ -86,11 +103,19 @@ export class Watcher {
   private animT = 0;
   private stepT = 0;
   private moveSpeed = 0;
+  /** Sustos dados en esta vida. Con MAX_STRIKES el jugador muere. */
+  private strikes = 0;
+  /** Segundos hasta poder volver a aparecer. */
+  private cooldown = FIRST_COOLDOWN;
+  /** Segundos que queda visible en la aparición actual (0 si está oculto). */
+  private manifestT = 0;
 
   constructor(private readonly deps: WatcherDeps) {
     this.rig = createWatcherModel();
     deps.scene.add(this.rig.root);
     this.placeAt(ROUTE[START_INDEX]);
+    // Invisible hasta que aparece en la cara del jugador.
+    this.rig.root.visible = false;
     // El monstruo no se guarda: al cargar una partida empieza otra vez su ruta.
     registry.register(
       "watcher",
@@ -101,6 +126,11 @@ export class Watcher {
 
   get state(): WatcherState {
     return this._state;
+  }
+
+  /** Si el monstruo está visible ahora mismo (solo durante una aparición). */
+  get visible(): boolean {
+    return this.rig.root.visible;
   }
 
   get x(): number {
@@ -123,6 +153,12 @@ export class Watcher {
 
   update(dt: number, t: number): void {
     this.moveSpeed = 0;
+    this.cooldown -= dt;
+    if (this.manifestT > 0) {
+      this.updateManifest(dt, t);
+      return;
+    }
+
     const p = this.deps.player.position;
     const seen = this.canSee(dt, p);
 
@@ -134,6 +170,16 @@ export class Watcher {
         this.target = null;
         sfx.alertAt(this.x, this.z);
       }
+    }
+
+    const dist = Math.hypot(p.x - this.x, p.z - this.z);
+    if (this._state === "chase" && dist <= MANIFEST_RANGE && this.canManifest()) {
+      this.startManifest(p);
+      return;
+    }
+    if (this._state === "chase" && dist < CATCH_DIST) {
+      // Llega a tu lado sin poder aparecer: se aparta un momento.
+      this.setAway();
     }
 
     switch (this._state) {
@@ -153,14 +199,9 @@ export class Watcher {
 
     this.openNearbyDoors();
     this.animate(dt, t);
-
-    if (this._state === "chase" && Math.hypot(p.x - this.x, p.z - this.z) < CATCH_DIST) {
-      this.reset();
-      this.deps.onCatch();
-    }
   }
 
-  /** Vuelve al inicio de la ruta. Se usa tras atrapar al jugador. */
+  /** Vuelve al inicio de la ruta. Se usa tras una muerte o al cargar una partida. */
   reset(): void {
     this._state = "patrol";
     this.target = null;
@@ -169,7 +210,64 @@ export class Watcher {
     this.timer = 0;
     this.stuckT = 0;
     this.waypoint = START_INDEX;
+    this.strikes = 0;
+    this.cooldown = FIRST_COOLDOWN;
+    this.manifestT = 0;
+    this.rig.root.visible = false;
     this.placeAt(ROUTE[START_INDEX]);
+  }
+
+  private canManifest(): boolean {
+    return this.cooldown <= 0 && !this.deps.player.hidden;
+  }
+
+  /** Aparece delante de la cara del jugador, mirándolo. */
+  private startManifest(p: THREE.Vector3): void {
+    this.strikes++;
+    this.manifestT = MANIFEST_TIME;
+    this.cooldown = COOLDOWN_MIN + Math.random() * (COOLDOWN_MAX - COOLDOWN_MIN);
+    this.target = null;
+
+    const facing = this.deps.player.facing ?? 0;
+    // El jugador mira a (-sin, -cos): la cara está FACE_DIST delante de él.
+    const fx = p.x - Math.sin(facing) * FACE_DIST;
+    const fz = p.z - Math.cos(facing) * FACE_DIST;
+    this.setXZ(fx, fz);
+    this.yaw = Math.atan2(p.x - fx, p.z - fz);
+    this.rig.root.rotation.y = this.yaw;
+    this.rig.root.visible = true;
+
+    sfx.scare();
+    this.deps.onScare?.(this.strikes);
+  }
+
+  /** Mientras está visible: mira al jugador y luego desaparece. */
+  private updateManifest(dt: number, t: number): void {
+    const p = this.deps.player.position;
+    this.yaw = Math.atan2(p.x - this.x, p.z - this.z);
+    this.animate(dt, t);
+
+    this.manifestT -= dt;
+    if (this.manifestT > 0) return;
+
+    this.manifestT = 0;
+    this.rig.root.visible = false;
+    if (this.strikes >= MAX_STRIKES) {
+      this.reset();
+      this.deps.onCatch();
+      return;
+    }
+    this.setAway();
+  }
+
+  /** Se aparta y registra la zona donde estaba el jugador, invisible. */
+  private setAway(): void {
+    const p = this.deps.player.position;
+    this._state = "search";
+    this.lastSeen = { x: p.x, z: p.z };
+    this.target = this.randomNear(this.lastSeen);
+    this.timer = SEARCH_TIME;
+    this.stuckT = 0;
   }
 
   private placeAt(p: Point): void {
