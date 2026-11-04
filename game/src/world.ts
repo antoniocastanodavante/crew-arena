@@ -10,7 +10,11 @@ export interface Rect {
 
 export interface World {
   rects: Rect[];
+  /** Material de la pantalla del ordenador del despacho. */
+  computerScreen: THREE.MeshStandardMaterial;
   update(t: number): void;
+  isPowered(): boolean;
+  setPower(on: boolean): void;
 }
 
 interface Flicker {
@@ -67,6 +71,7 @@ function runs(lo: number, hi: number, gaps: [number, number][]): [number, number
 export function createWorld(scene: THREE.Scene): World {
   const rects: Rect[] = [];
   const flickers: Flicker[] = [];
+  let powered = true;
 
   const floorTex = noiseTexture("#3b3a35", "#0c0c0a");
   floorTex.repeat.set(4, 6);
@@ -205,8 +210,9 @@ export function createWorld(scene: THREE.Scene): World {
 
   // Pasillo principal: x entre -2 y 2, z entre 6 y -30.
   // Los huecos son las puertas de las habitaciones.
-  wallAlongZ(-2, 6, -30, [[-9, -7], [-18, -16]]);
-  wallAlongZ(2, 6, -30, [[-13.5, -10.5], [-25, -23]]);
+  // Huecos de 1,2 m: aquí van las puertas (ver interactables.ts).
+  wallAlongZ(-2, 6, -30, [[-8.6, -7.4], [-17.6, -16.4]]);
+  wallAlongZ(2, 6, -30, [[-12.6, -11.4], [-24.6, -23.4]]);
   wallAlongX(6, -2, 2);
   wallAlongX(-30, -2, 2);
 
@@ -304,7 +310,13 @@ export function createWorld(scene: THREE.Scene): World {
 
   return {
     rects,
+    computerScreen: m.screen,
+    isPowered: () => powered,
+    setPower(on: boolean): void {
+      powered = on;
+    },
     update(t: number): void {
+      const p = powered ? 1 : 0;
       for (const f of flickers) {
         let k = 1 + 0.03 * Math.sin(t * 9 + f.phase);
         if (f.broken) {
@@ -314,8 +326,8 @@ export function createWorld(scene: THREE.Scene): World {
           }
           if (t < f.dimUntil) k = 0.05;
         }
-        f.light.intensity = f.base * k;
-        f.material.emissiveIntensity = k;
+        f.light.intensity = f.base * k * p;
+        f.material.emissiveIntensity = k * p;
       }
       redLight.intensity = 1.6 + Math.sin(t * 2.2) * 1.0;
       dust.position.y = Math.sin(t * 0.1) * 0.05;

@@ -3,6 +3,8 @@ import { createWorld } from "./world";
 import { Player } from "./player";
 import { Flashlight } from "./flashlight";
 import { Input } from "./input";
+import { Interactor } from "./interact";
+import { createInteractables } from "./interactables";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -17,6 +19,8 @@ const startScreen = byId<HTMLDivElement>("start-screen");
 const pauseScreen = byId<HTMLDivElement>("pause-screen");
 const startBtn = byId<HTMLButtonElement>("start-btn");
 const resumeBtn = byId<HTMLButtonElement>("resume-btn");
+const promptEl = byId<HTMLDivElement>("prompt");
+const messageEl = byId<HTMLDivElement>("message");
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -40,6 +44,30 @@ const flashlight = new Flashlight(camera);
 let started = false;
 let running = false;
 
+let messageTimer = 0;
+function notify(text: string): void {
+  messageEl.textContent = text;
+  messageEl.hidden = false;
+  window.clearTimeout(messageTimer);
+  messageTimer = window.setTimeout(() => {
+    messageEl.hidden = true;
+  }, 3500);
+}
+
+const interactables = createInteractables({
+  scene,
+  rects: world.rects,
+  world,
+  playerPos: player.position,
+});
+const interactor = new Interactor(interactables, {
+  onPrompt: (text) => {
+    promptEl.textContent = text ?? "";
+    promptEl.hidden = text === null;
+  },
+  onMessage: notify,
+});
+
 // Esc libera el puntero en el navegador; eso dispara onLockChange(false) y abre la pausa.
 const input = new Input(canvas, {
   onLockChange: (locked) => {
@@ -48,7 +76,9 @@ const input = new Input(canvas, {
     pauseScreen.hidden = locked;
   },
   onAction: (code) => {
-    if (code === "KeyF" && running) flashlight.toggle();
+    if (!running) return;
+    if (code === "KeyF") flashlight.toggle();
+    if (code === "KeyE") interactor.use();
   },
 });
 
@@ -79,7 +109,9 @@ function frame(): void {
   if (running) {
     player.update(dt, input);
     flashlight.update(dt, t);
+    interactor.update(camera);
   }
+  for (const item of interactables) item.update?.(dt);
   world.update(t);
 
   batteryFill.style.width = `${flashlight.battery}%`;

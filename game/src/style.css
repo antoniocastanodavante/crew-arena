@@ -122,6 +122,33 @@ button:focus-visible {
   animation: blink 0.4s steps(2) infinite;
 }
 
+#prompt,
+#message {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  text-align: center;
+}
+
+#prompt.hint {
+  bottom: 22%;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  color: #e6e1d3;
+  text-shadow: 0 0 8px #000;
+}
+
+#message.note {
+  top: 12%;
+  max-width: 560px;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.7);
+  border-left: 2px solid #6b2a24;
+}
+
 @keyframes blink {
   50% {
     opacity: 0.25;
