@@ -12,6 +12,21 @@ import { createHidingSpots } from "./hiding";
 import { Watcher, type PlayerView } from "./watcher";
 import { createPuzzles } from "./puzzles";
 import { KeypadUI } from "./keypad-ui";
+import {
+  decideEnding,
+  getEndings,
+  hasFlag,
+  hasSave,
+  loadGame,
+  loadSettings,
+  recordEnding,
+  registry,
+  saveGame,
+  saveSettings,
+  type EndingId,
+  type Settings,
+} from "./save";
+import { ENDING_TEXT } from "./endings";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -22,12 +37,15 @@ function byId<T extends HTMLElement>(id: string): T {
 const canvas = byId<HTMLCanvasElement>("game");
 const hud = byId<HTMLDivElement>("hud");
 const batteryFill = byId<HTMLDivElement>("battery-fill");
-const startScreen = byId<HTMLDivElement>("start-screen");
-const pauseScreen = byId<HTMLDivElement>("pause-screen");
-const startBtn = byId<HTMLButtonElement>("start-btn");
-const resumeBtn = byId<HTMLButtonElement>("resume-btn");
 const promptEl = byId<HTMLDivElement>("prompt");
 const messageEl = byId<HTMLDivElement>("message");
+
+const menuRoot = byId<HTMLDivElement>("start-screen");
+const pauseRoot = byId<HTMLDivElement>("pause-screen");
+const settingsRoot = byId<HTMLDivElement>("settings");
+const endingsRoot = byId<HTMLDivElement>("endings");
+const deathRoot = byId<HTMLDivElement>("death");
+const endingRoot = byId<HTMLDivElement>("ending");
 const inventoryRoot = byId<HTMLDivElement>("inventory");
 const keypadRoot = byId<HTMLDivElement>("keypad");
 
@@ -51,10 +69,14 @@ const player = new Player(camera, world.rects);
 const flashlight = new Flashlight(camera);
 const inventory = new Inventory();
 
+/** Partida en curso (después de Nueva o Continuar). */
 let started = false;
+/** El mundo avanza solo mientras es true. */
 let running = false;
-/** Panel a pantalla completa abierto (inventario o teclado). Mientras hay uno, el mundo está parado. */
+/** Panel a pantalla completa abierto: inventario, teclado, muerte o final. */
 let panelOpen: HTMLElement | null = null;
+/** A dónde vuelve el panel de Configuración. */
+let settingsBack: () => void = () => {};
 
 let messageTimer = 0;
 function notify(text: string): void {
@@ -108,12 +130,12 @@ const watcher = new Watcher({
   rects: world.rects,
   doors,
   player: playerView,
-  onCatch: () => {
-    player.resetTo(0, 3);
-    notify("Te ha atrapado. Vuelves a la entrada.");
-  },
+  onCatch: () => showDeath(),
 });
 noiseBus.on((x, z, r) => watcher.hear(x, z, r));
+
+// Todo lo que tiene estado ya está creado: se fija el estado inicial para las nuevas partidas.
+registry.captureInitial();
 
 // Correr hace ruido cada poco. El monstruo lo oye dentro de 10 m.
 let footstepTimer = 0;
@@ -154,6 +176,9 @@ const keypadUI = new KeypadUI(
   },
 );
 
+// ---------- Paneles y pantallas ----------
+
+/** Abre un panel a pantalla completa. Suelta el ratón y para el mundo. */
 function openPanel(el: HTMLElement): void {
   panelOpen = el;
   running = false;
@@ -162,18 +187,13 @@ function openPanel(el: HTMLElement): void {
   input.releaseLock();
 }
 
+/** Cierra el panel y vuelve al juego, si el juego sigue activo. */
 function closePanel(): void {
   if (!panelOpen) return;
   panelOpen.hidden = true;
   panelOpen = null;
-  running = true;
-  input.requestLock();
-}
-
-function openInventory(): void {
-  if (!started || !running || player.hidden) return;
-  inventoryUI.reset();
-  openPanel(inventoryRoot);
+  running = started;
+  if (started) input.requestLock();
 }
 
 function openKeypad(): void {
@@ -182,16 +202,138 @@ function openKeypad(): void {
   openPanel(keypadRoot);
 }
 
+function openInventory(): void {
+  if (!started || !running || player.hidden) return;
+  inventoryUI.reset();
+  openPanel(inventoryRoot);
+}
+
+function hideAllScreens(): void {
+  for (const el of [menuRoot, pauseRoot, settingsRoot, endingsRoot, deathRoot, endingRoot, inventoryRoot, keypadRoot]) {
+    el.hidden = true;
+  }
+  panelOpen = null;
+}
+
+function showMenu(): void {
+  hideAllScreens();
+  started = false;
+  running = false;
+  hud.hidden = true;
+  promptEl.hidden = true;
+  byId<HTMLButtonElement>("continue-btn").disabled = !hasSave();
+  menuRoot.hidden = false;
+  input.releaseLock();
+}
+
+/** Nueva partida (estado inicial) o continuar desde el último guardado. */
+function startGame(fresh: boolean): void {
+  if (fresh) {
+    registry.reset();
+  } else if (!loadGame()) {
+    notify("No hay partida guardada.");
+    return;
+  }
+  hideAllScreens();
+  ended = false;
+  started = true;
+  running = true;
+  hud.hidden = false;
+  input.requestLock();
+}
+
+function showPause(): void {
+  hideAllScreens();
+  running = false;
+  pauseRoot.hidden = false;
+}
+
+function showDeath(): void {
+  hideAllScreens();
+  openPanel(deathRoot);
+}
+
+function showEnding(kind: EndingId): void {
+  recordEnding(kind);
+  byId<HTMLElement>("ending-title").textContent = ENDING_TEXT[kind].title;
+  byId<HTMLElement>("ending-text").textContent = ENDING_TEXT[kind].text;
+  openPanel(endingRoot);
+}
+
+function showEndings(): void {
+  hideAllScreens();
+  const list = byId<HTMLUListElement>("endings-list");
+  const found = new Set(getEndings());
+  list.replaceChildren();
+  for (const id of ["bueno", "malo", "secreto"] as EndingId[]) {
+    const li = document.createElement("li");
+    li.textContent = found.has(id)
+      ? `${ENDING_TEXT[id].title}. ${ENDING_TEXT[id].text}`
+      : "???";
+    list.appendChild(li);
+  }
+  endingsRoot.hidden = false;
+}
+
+/** Configuración desde el menú o desde la pausa. Volver lleva a donde se abrió. */
+function showSettings(back: () => void): void {
+  hideAllScreens();
+  settingsBack = back;
+  syncSettingsUI(currentSettings);
+  settingsRoot.hidden = false;
+}
+
+// ---------- Configuración ----------
+
+let currentSettings: Settings = loadSettings();
+
+function applySettings(s: Settings): void {
+  currentSettings = s;
+  player.sensitivity = s.sensitivity;
+  player.bobScale = s.reduceMotion ? 0 : 1;
+}
+
+function syncSettingsUI(s: Settings): void {
+  const range = byId<HTMLInputElement>("set-sensitivity");
+  range.value = String(s.sensitivity);
+  byId<HTMLElement>("set-sensitivity-value").textContent = `${s.sensitivity.toFixed(1)}×`;
+  byId<HTMLInputElement>("set-reduce-motion").checked = s.reduceMotion;
+}
+
+byId<HTMLInputElement>("set-sensitivity").addEventListener("input", (e) => {
+  const value = Number((e.target as HTMLInputElement).value);
+  const next = { ...currentSettings, sensitivity: value };
+  applySettings(next);
+  saveSettings(next);
+  byId<HTMLElement>("set-sensitivity-value").textContent = `${value.toFixed(1)}×`;
+});
+
+byId<HTMLInputElement>("set-reduce-motion").addEventListener("change", (e) => {
+  const next = { ...currentSettings, reduceMotion: (e.target as HTMLInputElement).checked };
+  applySettings(next);
+  saveSettings(next);
+});
+
+applySettings(currentSettings);
+
+// ---------- Entrada ----------
+
 // Esc libera el puntero en el navegador; eso dispara onLockChange(false) y abre la pausa.
 const input = new Input(canvas, {
   onLockChange: (locked) => {
     if (!started || panelOpen) return;
-    running = locked;
-    pauseScreen.hidden = locked;
+    if (locked) {
+      running = true;
+      pauseRoot.hidden = true;
+    } else {
+      showPause();
+    }
   },
   onAction: (code) => {
     if (panelOpen) {
-      if (code === "Escape" || (code === "KeyI" && panelOpen === inventoryRoot)) closePanel();
+      // Solo el inventario y el teclado se cierran con Esc o I. Muerte y final no.
+      const closable = panelOpen === inventoryRoot || panelOpen === keypadRoot;
+      if (closable && (code === "Escape" || (code === "KeyI" && panelOpen === inventoryRoot))) closePanel();
       return;
     }
     if (!running) return;
@@ -205,21 +347,58 @@ const input = new Input(canvas, {
   },
 });
 
-startBtn.addEventListener("click", () => {
-  started = true;
+// ---------- Botones ----------
+
+byId<HTMLButtonElement>("new-btn").addEventListener("click", () => startGame(true));
+byId<HTMLButtonElement>("continue-btn").addEventListener("click", () => startGame(false));
+byId<HTMLButtonElement>("menu-settings-btn").addEventListener("click", () => showSettings(showMenu));
+byId<HTMLButtonElement>("menu-endings-btn").addEventListener("click", () => showEndings());
+
+byId<HTMLButtonElement>("resume-btn").addEventListener("click", () => {
+  pauseRoot.hidden = true;
   running = true;
-  startScreen.hidden = true;
-  hud.hidden = false;
   input.requestLock();
 });
+byId<HTMLButtonElement>("save-btn").addEventListener("click", () => {
+  saveGame();
+  notify("Partida guardada.");
+});
+byId<HTMLButtonElement>("pause-settings-btn").addEventListener("click", () =>
+  showSettings(() => showPause()),
+);
+byId<HTMLButtonElement>("pause-menu-btn").addEventListener("click", () => showMenu());
 
-resumeBtn.addEventListener("click", () => input.requestLock());
+byId<HTMLButtonElement>("settings-back").addEventListener("click", () => settingsBack());
+byId<HTMLButtonElement>("endings-back").addEventListener("click", () => showMenu());
+
+byId<HTMLButtonElement>("death-retry").addEventListener("click", () => {
+  player.resetTo(0, 3);
+  closePanel();
+  notify("Vuelves a la entrada.");
+});
+byId<HTMLButtonElement>("death-menu").addEventListener("click", () => showMenu());
+byId<HTMLButtonElement>("ending-menu").addEventListener("click", () => showMenu());
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ---------- Bucle ----------
+
+const EXIT_Z = 6.2;
+let ended = false;
+
+function checkExit(): void {
+  if (ended || player.position.z < EXIT_Z) return;
+  ended = true;
+  const kind = decideEnding(
+    { admision: inventory.has("doc_admision"), guardia: inventory.has("doc_guardia") },
+    hasFlag("computerRead"),
+  );
+  showEnding(kind);
+}
 
 const clock = new THREE.Clock();
 
@@ -248,6 +427,7 @@ function frame(): void {
     }
 
     watcher.update(dt, t);
+    checkExit();
   }
   for (const item of interactables) item.update?.(dt);
   world.update(t);
@@ -258,4 +438,5 @@ function frame(): void {
   renderer.render(scene, camera);
 }
 
+showMenu();
 frame();

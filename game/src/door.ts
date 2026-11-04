@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Rect } from "./world";
 import type { Interactable } from "./interact";
+import { registry } from "./save";
 
 const OPEN_ANGLE = Math.PI * 0.5 * 0.9;
 const WALL_MARGIN = 0.1;
@@ -28,6 +29,8 @@ export class Door implements Interactable {
   private angle = 0;
   /** Si existe, decide si el jugador puede abrir. Devuelve un mensaje cuando no puede. */
   private gate: (() => string | null) | null = null;
+  /** Condición con la que la puerta empezó, para volver a cerrarla con llave al reiniciar. */
+  private defaultGate: (() => string | null) | null = null;
   private readonly pivot = new THREE.Group();
   private readonly closedRect: Rect;
   private readonly cx: number;
@@ -70,6 +73,33 @@ export class Door implements Interactable {
     scene.add(this.pivot);
     this.targets = [panel];
     this.rects.push(this.closedRect);
+
+    registry.register(
+      `door:${axis}:${fixed}:${from}`,
+      () => ({ open: this.isOpen, unlocked: this.gate === null }),
+      (v) => this.restoreState(v as { open: boolean; unlocked: boolean }),
+    );
+  }
+
+  private restoreState(s: { open: boolean; unlocked: boolean }): void {
+    this.gate = s.unlocked ? null : this.defaultGate;
+    this.closedRect.door = this.gate === null;
+    if (s.open) {
+      this.gate = null;
+      this.closedRect.door = true;
+    }
+    this.setOpenState(s.open);
+  }
+
+  private setOpenState(open: boolean): void {
+    if (open === this.isOpen) return;
+    this.isOpen = open;
+    if (open) {
+      const i = this.rects.indexOf(this.closedRect);
+      if (i >= 0) this.rects.splice(i, 1);
+    } else {
+      this.rects.push(this.closedRect);
+    }
   }
 
   label(): string {
@@ -81,6 +111,7 @@ export class Door implements Interactable {
    * Mientras hay condición la puerta es sólida también para el monstruo.
    */
   setGate(gate: (() => string | null) | null): void {
+    if (gate) this.defaultGate = gate;
     this.gate = gate;
     this.closedRect.door = gate === null;
   }

@@ -262,6 +262,76 @@ button:focus-visible {
   letter-spacing: 0;
 }
 
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.menu button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+
+.panel {
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow: auto;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+  text-align: left;
+  background: rgba(8, 8, 8, 0.94);
+  border: 1px solid #3a2a26;
+}
+
+.panel h2 {
+  text-align: center;
+}
+
+.panel button {
+  align-self: center;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+
+.field.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.endings-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.endings-list li {
+  padding: 12px;
+  border-left: 2px solid #6b2a24;
+  background: rgba(255, 255, 255, 0.02);
+  line-height: 1.5;
+}
+
+.ending-text {
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
 @keyframes blink {
   50% {
     opacity: 0.25;

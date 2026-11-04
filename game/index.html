@@ -44,18 +44,77 @@
       </div>
     </div>
 
+    <!-- Menú principal -->
     <div id="start-screen" class="overlay">
       <h1>SHADOWS</h1>
       <p class="sub">03:17. Estás en el hospital.</p>
-      <button id="start-btn" type="button">Empezar</button>
+      <div class="menu">
+        <button id="new-btn" type="button">Nueva partida</button>
+        <button id="continue-btn" type="button">Continuar partida</button>
+        <button id="menu-settings-btn" type="button">Configuración</button>
+        <button id="menu-endings-btn" type="button">Finales</button>
+      </div>
       <p class="help">
         WASD mover · Ratón mirar · Shift correr · Ctrl agacharse · F linterna · E interactuar · I inventario · Esc pausa
       </p>
     </div>
 
+    <!-- Pausa -->
     <div id="pause-screen" class="overlay" hidden>
       <h2>Pausa</h2>
-      <button id="resume-btn" type="button">Continuar</button>
+      <div class="menu">
+        <button id="resume-btn" type="button">Continuar</button>
+        <button id="save-btn" type="button">Guardar</button>
+        <button id="pause-settings-btn" type="button">Configuración</button>
+        <button id="pause-menu-btn" type="button">Menú principal</button>
+      </div>
+    </div>
+
+    <!-- Configuración -->
+    <div id="settings" class="overlay" hidden>
+      <div class="panel">
+        <h2>Configuración</h2>
+        <label class="field">
+          Sensibilidad del ratón
+          <input id="set-sensitivity" type="range" min="0.5" max="2" step="0.1" />
+          <span id="set-sensitivity-value"></span>
+        </label>
+        <label class="field check">
+          <input id="set-reduce-motion" type="checkbox" />
+          Reducir el balanceo de la cámara
+        </label>
+        <button id="settings-back" type="button">Volver</button>
+      </div>
+    </div>
+
+    <!-- Finales descubiertos -->
+    <div id="endings" class="overlay" hidden>
+      <div class="panel">
+        <h2>Finales</h2>
+        <ul id="endings-list" class="endings-list"></ul>
+        <button id="endings-back" type="button">Volver</button>
+      </div>
+    </div>
+
+    <!-- Pantalla de muerte -->
+    <div id="death" class="overlay" hidden>
+      <div class="panel">
+        <h2>Te ha atrapado</h2>
+        <p class="sub">Algo te sujeta el brazo. Luego, nada.</p>
+        <div class="menu">
+          <button id="death-retry" type="button">Volver a intentar</button>
+          <button id="death-menu" type="button">Menú principal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Final -->
+    <div id="ending" class="overlay" hidden>
+      <div class="panel">
+        <h2 id="ending-title"></h2>
+        <p id="ending-text" class="ending-text"></p>
+        <button id="ending-menu" type="button">Menú principal</button>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

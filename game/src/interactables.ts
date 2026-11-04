@@ -4,6 +4,7 @@ import type { Interactable } from "./interact";
 import { Door, type NoiseEmitter } from "./door";
 import { ITEMS } from "./items";
 import type { Inventory } from "./inventory";
+import { registry, setFlag } from "./save";
 
 const DRAWER_TRAVEL = 0.35;
 
@@ -16,7 +17,17 @@ class Pickup implements Interactable {
     private readonly inventory: Inventory,
     private readonly visual: THREE.Mesh,
     private readonly hitbox: THREE.Mesh,
-  ) {}
+  ) {
+    const key = `pickup:${id}:${visual.position.x},${visual.position.z}`;
+    registry.register(
+      key,
+      () => this.collected,
+      (v) => {
+        this.collected = v === true;
+        this.visual.visible = !this.collected;
+      },
+    );
+  }
 
   get targets(): THREE.Object3D[] {
     return this.collected ? [] : [this.hitbox];
@@ -50,6 +61,17 @@ class Drawer implements Interactable {
   ) {
     this.targets = [front];
     this.basePos = front.position.clone();
+    registry.register(
+      "drawer",
+      () => ({ open: this.open, seen: this.seen }),
+      (v) => {
+        const s = v as { open: boolean; seen: boolean };
+        this.open = s.open;
+        this.seen = s.seen;
+        this.offset = s.open ? DRAWER_TRAVEL : 0;
+        this.front.position.copy(this.basePos).addScaledVector(this.dir, this.offset);
+      },
+    );
   }
 
   label(): string {
@@ -107,6 +129,13 @@ class Computer implements Interactable {
     private readonly text: string,
   ) {
     this.targets = [hitbox];
+    registry.register(
+      "computer",
+      () => ({ on: this.on }),
+      (v) => {
+        this.on = (v as { on: boolean }).on;
+      },
+    );
   }
 
   label(): string {
@@ -116,6 +145,7 @@ class Computer implements Interactable {
   use(): string | null {
     if (!this.on && !this.world.isPowered()) return "No hay corriente.";
     this.on = !this.on;
+    if (this.on) setFlag("computerRead");
     return this.on ? this.text : null;
   }
 
@@ -216,7 +246,7 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
       world.computerScreen,
       world,
       hitbox,
-      "REGISTRO DE PACIENTES. Última entrada, 03:12: paciente 7 trasladado al sótano.",
+      "REGISTRO DE PACIENTES. Última entrada, 03:12: paciente 7 trasladado al sótano. Paciente 7: ingresó a las 03:17. Firma de ingreso: tu nombre.",
     ),
   );
 

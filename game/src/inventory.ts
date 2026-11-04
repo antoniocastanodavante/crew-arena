@@ -1,4 +1,5 @@
 import { ITEMS, type ItemDef } from "./items";
+import { registry } from "./save";
 
 export interface InventoryEntry {
   id: string;
@@ -10,6 +11,18 @@ export interface InventoryEntry {
 export class Inventory {
   private readonly counts = new Map<string, number>();
   private readonly listeners: Array<() => void> = [];
+
+  constructor() {
+    registry.register(
+      "inventory",
+      () => [...this.counts.entries()],
+      (v) => {
+        this.counts.clear();
+        for (const [id, n] of v as Array<[string, number]>) this.counts.set(id, n);
+        this.emit();
+      },
+    );
+  }
 
   add(id: string): void {
     if (!ITEMS[id]) throw new Error(`Objeto desconocido: ${id}`);

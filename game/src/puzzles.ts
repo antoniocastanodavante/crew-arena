@@ -3,6 +3,7 @@ import type { Interactable } from "./interact";
 import type { Inventory } from "./inventory";
 import type { World, Rect } from "./world";
 import type { Door, NoiseEmitter } from "./door";
+import { registry } from "./save";
 
 /** Código del teclado: la hora de ingreso de la ficha de admisión. */
 export const KEYPAD_CODE = "0317";
@@ -51,6 +52,13 @@ export class Keypad implements Interactable {
     private readonly at: { x: number; z: number },
   ) {
     this.targets = [hit];
+    registry.register(
+      "keypad",
+      () => this.solved,
+      (v) => {
+        this.solved = v === true;
+      },
+    );
   }
 
   label(): string | null {
@@ -107,6 +115,13 @@ class Cart implements Interactable {
     private readonly inventory: Inventory,
   ) {
     this.targets = [hit];
+    registry.register(
+      "cart",
+      () => this.revealed,
+      (v) => {
+        this.revealed = v === true;
+      },
+    );
   }
 
   label(): string | null {
@@ -126,7 +141,17 @@ export class LabPuzzle {
   progress = 0;
   solved = false;
 
-  constructor(private readonly inventory: Inventory) {}
+  constructor(private readonly inventory: Inventory) {
+    registry.register(
+      "lab",
+      () => ({ progress: this.progress, solved: this.solved }),
+      (v) => {
+        const s = v as { progress: number; solved: boolean };
+        this.progress = s.progress;
+        this.solved = s.solved;
+      },
+    );
+  }
 
   press(color: string): string {
     if (this.solved) return "";

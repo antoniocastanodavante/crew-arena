@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { Input } from "./input";
 import type { Rect } from "./world";
 import { circleBlocked } from "./collision";
+import { registry } from "./save";
 
 const RADIUS = 0.3;
 const STAND_H = 1.65;
@@ -43,6 +44,10 @@ export class Player {
   /** Transición de cámara al entrar o salir de un escondite. */
   private tween: { from: THREE.Vector3; t: number } | null = null;
 
+  /** Ajustes de Configuración. */
+  sensitivity = 1;
+  bobScale = 1;
+
   private yaw = 0;
   private pitch = 0;
   private eye = STAND_H;
@@ -54,6 +59,14 @@ export class Player {
   ) {
     camera.rotation.order = "YXZ";
     this.sync(0);
+    registry.register(
+      "player",
+      () => ({ x: this.position.x, z: this.position.z }),
+      (v) => {
+        const p = v as { x: number; z: number };
+        this.resetTo(p.x, p.z);
+      },
+    );
   }
 
   get hidden(): boolean {
@@ -88,8 +101,9 @@ export class Player {
 
   update(dt: number, input: Input): void {
     const look = input.consumeLook();
-    this.yaw -= look.x * LOOK_SENSITIVITY;
-    this.pitch = clamp(this.pitch - look.y * LOOK_SENSITIVITY, -MAX_PITCH, MAX_PITCH);
+    const k = LOOK_SENSITIVITY * this.sensitivity;
+    this.yaw -= look.x * k;
+    this.pitch = clamp(this.pitch - look.y * k, -MAX_PITCH, MAX_PITCH);
 
     // Escondido se puede mirar alrededor, pero no moverse.
     if (!this._hidden) {
@@ -140,7 +154,8 @@ export class Player {
     }
 
     if (this.moving) this.bobT += dt * (this.sprinting ? 13 : 8);
-    this.sync(this.moving ? Math.sin(this.bobT) * (this.sprinting ? 0.05 : 0.025) : 0);
+    const bob = this.moving ? Math.sin(this.bobT) * (this.sprinting ? 0.05 : 0.025) : 0;
+    this.sync(bob * this.bobScale);
   }
 
   private sync(bob: number): void {

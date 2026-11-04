@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { registry } from "./save";
 
 /** Caja en planta (XZ) contra la que choca el jugador. */
 export interface Rect {
@@ -78,6 +79,15 @@ export function createWorld(scene: THREE.Scene): World {
   // Sin corriente al empezar: hay que meter el fusible en la caja del pasillo.
   let powered = false;
   let fuseInstalled = false;
+  registry.register(
+    "world",
+    () => ({ powered, fuse: fuseInstalled }),
+    (v) => {
+      const s = v as { powered: boolean; fuse: boolean };
+      powered = s.powered;
+      fuseInstalled = s.fuse;
+    },
+  );
 
   const floorTex = noiseTexture("#3b3a35", "#0c0c0a");
   floorTex.repeat.set(4, 6);
@@ -219,7 +229,14 @@ export function createWorld(scene: THREE.Scene): World {
   // Huecos de 1,2 m: aquí van las puertas (ver interactables.ts).
   wallAlongZ(-2, 6, -30, [[-8.6, -7.4], [-17.6, -16.4]]);
   wallAlongZ(2, 6, -30, [[-12.6, -11.4], [-24.6, -23.4]]);
-  wallAlongX(6, -2, 2);
+  // Salida principal en el muro de la entrada (z = 6), con un cartel encima.
+  wallAlongX(6, -2, 2, [[-0.6, 0.6]]);
+  const exitSign = new THREE.Mesh(
+    new THREE.BoxGeometry(0.6, 0.15, 0.04),
+    new THREE.MeshStandardMaterial({ color: "#103010", emissive: "#2bd66b", emissiveIntensity: 1.2 }),
+  );
+  exitSign.position.set(0, 2.75, 5.95);
+  scene.add(exitSign);
   wallAlongX(-30, -2, 2);
 
   // Habitación A (izquierda, paciente)

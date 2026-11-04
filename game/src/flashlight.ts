@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { registry } from "./save";
 
 const MAX_BATTERY = 100;
 /** Unidades de batería por segundo con la linterna encendida (~2,5 min). */
@@ -16,6 +17,14 @@ export class Flashlight {
   private nextFlicker = 0;
 
   constructor(camera: THREE.Camera) {
+    registry.register(
+      "flashlight",
+      () => ({ battery: this.battery }),
+      (v) => {
+        this.battery = (v as { battery: number }).battery;
+        this.on = false;
+      },
+    );
     this.light = new THREE.SpotLight(0xfff0d0, 0, 30, Math.PI / 6.5, 0.4, 1.6);
     // Un poco abajo y a la derecha, como si la sostuviera la mano.
     this.light.position.set(0.15, -0.12, 0);

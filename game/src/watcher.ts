@@ -3,6 +3,7 @@ import type { Rect } from "./world";
 import type { Door } from "./door";
 import { createWatcherModel, type WatcherRig } from "./watcher-model";
 import { circleBlocked, lineClear } from "./collision";
+import { registry } from "./save";
 
 export type WatcherState = "patrol" | "investigate" | "chase" | "search";
 
@@ -88,6 +89,12 @@ export class Watcher {
     this.rig = createWatcherModel();
     deps.scene.add(this.rig.root);
     this.placeAt(ROUTE[START_INDEX]);
+    // El monstruo no se guarda: al cargar una partida empieza otra vez su ruta.
+    registry.register(
+      "watcher",
+      () => null,
+      () => this.reset(),
+    );
   }
 
   get state(): WatcherState {
