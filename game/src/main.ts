@@ -144,8 +144,10 @@ function scareFlash(): void {
   flashEl.classList.add("go");
 }
 
-/** Salud que quita cada aparición. Con 100 de salud, tres sustos seguidos matan. */
-const SCARE_DAMAGE = 35;
+/** Cada aparición tiene esta probabilidad de hacer daño, y el daño es pequeño. */
+const SCARE_HIT_CHANCE = 0.45;
+const SCARE_DMG_MIN = 8;
+const SCARE_DMG_MAX = 14;
 const BANDAGE_HEAL = 40;
 const healthFill = byId<HTMLDivElement>("health-fill");
 
@@ -156,15 +158,24 @@ const watcher = new Watcher({
   player: playerView,
   onScare: () => {
     scareFlash();
-    scareShake = 0.9;
-    world.blackout(0.35);
+    scareShake = 1.1;
+    world.blackout(0.4);
+    // Sobresalto: la cabeza se echa atrás y se ladea
+    player.kick(0.25, (Math.random() - 0.5) * 0.3);
     // Zoom brusco que se recupera solo (el jugador vuelve al FOV normal)
     camera.fov = 96;
     camera.updateProjectionMatrix();
-    if (player.damage(SCARE_DAMAGE)) {
-      sfx.hit();
-      watcher.reset();
-      showDeath();
+
+    // No siempre hace daño, y cuando lo hace es poco
+    if (Math.random() < SCARE_HIT_CHANCE) {
+      const dmg = SCARE_DMG_MIN + Math.floor(Math.random() * (SCARE_DMG_MAX - SCARE_DMG_MIN + 1));
+      if (player.damage(dmg)) {
+        sfx.hit();
+        watcher.reset();
+        showDeath();
+      } else {
+        notify("Te ha dado un zarpazo.");
+      }
     }
   },
 });

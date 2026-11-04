@@ -75,9 +75,13 @@ const STUCK_TIME = 1.2;
  * Apariciones: el monstruo es invisible casi siempre. Cuando te persigue de cerca
  * aparece un momento delante de tu cara. Hace falta varias apariciones para morir.
  */
-const MANIFEST_TIME = 1.6;
+const MANIFEST_TIME = 2.4;
 const MANIFEST_RANGE = 8;
-const FACE_DIST = 0.7;
+/** Distancia final: el fantasma queda justo frente a la cara del jugador. */
+const FACE_DIST = 1.2;
+/** Distancia desde la que se abalanza, y cuánto tarda. */
+const RUSH_DIST = 3.2;
+const RUSH_TIME = 0.2;
 const FIRST_COOLDOWN = 5;
 const COOLDOWN_MIN = 7;
 const COOLDOWN_MAX = 14;
@@ -211,6 +215,7 @@ export class Watcher {
     this.cooldown = FIRST_COOLDOWN;
     this.manifestT = 0;
     this.rig.root.visible = false;
+    this.rig.glow.intensity = 0;
     this.placeAt(ROUTE[START_INDEX]);
   }
 
@@ -225,16 +230,12 @@ export class Watcher {
     this.cooldown = COOLDOWN_MIN + Math.random() * (COOLDOWN_MAX - COOLDOWN_MIN);
     this.target = null;
 
-    const facing = this.deps.player.facing ?? 0;
-    // El jugador mira a (-sin, -cos): la cara está FACE_DIST delante de él.
-    const fx = p.x - Math.sin(facing) * FACE_DIST;
-    const fz = p.z - Math.cos(facing) * FACE_DIST;
-    this.setXZ(fx, fz);
-    this.yaw = Math.atan2(p.x - fx, p.z - fz);
-    this.rig.root.rotation.y = this.yaw;
+    // Empieza lejos y se abalanza sobre el jugador (ver updateManifest).
+    this.placeInFront(RUSH_DIST, p);
     this.rig.root.visible = true;
+    this.rig.glow.intensity = 2.5;
 
-    sfx.scare();
+    sfx.scream();
     this.deps.onScare?.(this.strikes);
   }
 
@@ -244,25 +245,48 @@ export class Watcher {
    */
   private updateManifest(dt: number, t: number): void {
     const p = this.deps.player.position;
-    this.yaw = Math.atan2(p.x - this.x, p.z - this.z);
+
+    // Se abalanza: rápido al principio y luego se detiene frente al jugador
+    const elapsed = MANIFEST_TIME - this.manifestT;
+    const k = Math.min(1, elapsed / RUSH_TIME);
+    const dist = RUSH_DIST + (FACE_DIST - RUSH_DIST) * (1 - (1 - k) ** 3);
+    this.placeInFront(dist, p);
     this.animate(dt, t);
 
-    // Cabeza inclinada hacia abajo, mirando a la cara del jugador
-    this.rig.head.rotation.x = 0.45;
-    this.rig.head.rotation.y = 0;
+    // Pose de susto: brazos extendidos hacia ti, cabeza inclinada, cuerpo adelantado
+    const rig = this.rig;
+    rig.head.rotation.x = 0.45;
+    rig.head.rotation.y = 0;
+    rig.torso.rotation.x = -0.25;
+    rig.armL.rotation.x = -1.3 + Math.sin(t * 9) * 0.25;
+    rig.armR.rotation.x = -1.3 - Math.sin(t * 9 + 1) * 0.25;
+    rig.hair.rotation.z = Math.sin(t * 3) * 0.12;
 
-    // Ojos que parpadean con fuerza
-    this.rig.eyes.emissiveIntensity = 3 + Math.sin(t * 28) * 1.5;
+    // Ojos que parpadean con fuerza, y luz pálida que vibra
+    rig.eyes.emissiveIntensity = 3 + Math.sin(t * 28) * 1.5;
+    rig.glow.intensity = 2.5 + Math.sin(t * 20) * 0.4;
 
     // Fallo visual: una sola frame invisible de vez en cuando
-    this.rig.root.visible = Math.random() > 0.06;
+    rig.root.visible = Math.random() > 0.05;
 
     this.manifestT -= dt;
     if (this.manifestT > 0) return;
 
     this.manifestT = 0;
-    this.rig.root.visible = false;
+    rig.root.visible = false;
+    rig.glow.intensity = 0;
     this.setAway();
+  }
+
+  /** Coloca el fantasma a `dist` metros delante del jugador, mirándolo. */
+  private placeInFront(dist: number, p: THREE.Vector3): void {
+    const facing = this.deps.player.facing ?? 0;
+    // El jugador mira a (-sin, -cos): delante de él está (p - (sin, cos) * dist)
+    const fx = p.x - Math.sin(facing) * dist;
+    const fz = p.z - Math.cos(facing) * dist;
+    this.setXZ(fx, fz);
+    this.yaw = Math.atan2(p.x - fx, p.z - fz);
+    this.rig.root.rotation.y = this.yaw;
   }
 
   /** Se aparta y registra la zona donde estaba el jugador, invisible. */

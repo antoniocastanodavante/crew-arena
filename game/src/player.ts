@@ -53,6 +53,9 @@ export class Player {
 
   private yaw = 0;
   private pitch = 0;
+  /** Sobresalto de cámara (se recupera solo). */
+  private kickPitch = 0;
+  private kickRoll = 0;
   private eye = STAND_H;
   private bobT = 0;
 
@@ -163,6 +166,10 @@ export class Player {
       if (this.tween.t >= 1) this.tween = null;
     }
 
+    const decay = Math.exp(-dt * 8);
+    this.kickPitch *= decay;
+    this.kickRoll *= decay;
+
     if (this.moving) this.bobT += dt * (this.sprinting ? 13 : 8);
     const bob = this.moving ? Math.sin(this.bobT) * (this.sprinting ? 0.05 : 0.025) : 0;
     this.sync(bob * this.bobScale);
@@ -179,7 +186,13 @@ export class Player {
     } else {
       this.camera.position.set(x, y, z);
     }
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.camera.rotation.set(this.pitch + this.kickPitch, this.yaw, this.kickRoll);
+  }
+
+  /** Sobresalto: la cabeza se echa atrás y se ladea. Se recupera solo. */
+  kick(pitch: number, roll: number): void {
+    this.kickPitch = pitch;
+    this.kickRoll = roll;
   }
 
   private beginTween(): void {
