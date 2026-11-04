@@ -51,10 +51,12 @@ const inventoryRoot = byId<HTMLDivElement>("inventory");
 const keypadRoot = byId<HTMLDivElement>("keypad");
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// 1.5 como máximo: en pantallas de alta densidad el coste de píxeles crece muy rápido.
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// PCF en vez de PCFSoft: la sombra se ve casi igual y cuesta menos por píxel.
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
