@@ -17,6 +17,8 @@ export interface World {
   update(t: number): void;
   isPowered(): boolean;
   setPower(on: boolean): void;
+  hasFuse(): boolean;
+  installFuse(): void;
 }
 
 interface Flicker {
@@ -73,7 +75,9 @@ function runs(lo: number, hi: number, gaps: [number, number][]): [number, number
 export function createWorld(scene: THREE.Scene): World {
   const rects: Rect[] = [];
   const flickers: Flicker[] = [];
-  let powered = true;
+  // Sin corriente al empezar: hay que meter el fusible en la caja del pasillo.
+  let powered = false;
+  let fuseInstalled = false;
 
   const floorTex = noiseTexture("#3b3a35", "#0c0c0a");
   floorTex.repeat.set(4, 6);
@@ -315,7 +319,14 @@ export function createWorld(scene: THREE.Scene): World {
     computerScreen: m.screen,
     isPowered: () => powered,
     setPower(on: boolean): void {
+      // Encender requiere el fusible; apagar siempre se puede.
+      if (on && !fuseInstalled) return;
       powered = on;
+    },
+    hasFuse: () => fuseInstalled,
+    installFuse(): void {
+      fuseInstalled = true;
+      powered = true;
     },
     update(t: number): void {
       const p = powered ? 1 : 0;

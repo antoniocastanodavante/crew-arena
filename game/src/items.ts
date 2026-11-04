@@ -37,7 +37,13 @@ export const ITEMS: Record<string, ItemDef> = {
     name: "Ficha de admisión",
     kind: "documento",
     description:
-      "Nombre del paciente borrado. Entrada: 23:40. Destino: sótano. Firma ilegible.",
+      "Nombre del paciente borrado. Hora de ingreso: 03:17. Destino: quirófano. Firma ilegible.",
+    usable: false,
+  },
+  fusible: {
+    name: "Fusible",
+    kind: "especial",
+    description: "Fusible de repuesto. Cabe en la caja de fusibles del pasillo.",
     usable: false,
   },
   doc_guardia: {

@@ -26,6 +26,8 @@ export class Door implements Interactable {
 
   private isOpen = false;
   private angle = 0;
+  /** Si existe, decide si el jugador puede abrir. Devuelve un mensaje cuando no puede. */
+  private gate: (() => string | null) | null = null;
   private readonly pivot = new THREE.Group();
   private readonly closedRect: Rect;
   private readonly cx: number;
@@ -74,6 +76,15 @@ export class Door implements Interactable {
     return this.isOpen ? "cerrar la puerta" : "abrir la puerta";
   }
 
+  /**
+   * Pone una condición para abrir (llave, tarjeta, código). null la quita.
+   * Mientras hay condición la puerta es sólida también para el monstruo.
+   */
+  setGate(gate: (() => string | null) | null): void {
+    this.gate = gate;
+    this.closedRect.door = gate === null;
+  }
+
   /** Lo usa el jugador con E. Abrir o cerrar hace ruido. */
   use(): string | null {
     if (this.isOpen) {
@@ -81,6 +92,11 @@ export class Door implements Interactable {
       this.isOpen = false;
       this.rects.push(this.closedRect);
     } else {
+      if (this.gate) {
+        const blocked = this.gate();
+        if (blocked) return blocked;
+        this.setGate(null);
+      }
       this.open();
     }
     this.onNoise(this.cx, this.cz, NOISE_RADIUS);
@@ -89,7 +105,7 @@ export class Door implements Interactable {
 
   /** Abre la puerta sin hacer ruido. El monstruo la usa al pasar. */
   open(): void {
-    if (this.isOpen) return;
+    if (this.isOpen || this.gate) return;
     this.isOpen = true;
     const i = this.rects.indexOf(this.closedRect);
     if (i >= 0) this.rects.splice(i, 1);

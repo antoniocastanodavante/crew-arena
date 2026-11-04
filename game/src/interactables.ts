@@ -47,7 +47,6 @@ class Drawer implements Interactable {
     private readonly front: THREE.Mesh,
     private readonly dir: THREE.Vector3,
     private readonly firstOpenText: string,
-    private readonly onFirstOpen: () => void,
   ) {
     this.targets = [front];
     this.basePos = front.position.clone();
@@ -61,7 +60,6 @@ class Drawer implements Interactable {
     this.open = !this.open;
     if (this.open && !this.seen) {
       this.seen = true;
-      this.onFirstOpen();
       return this.firstOpenText;
     }
     return null;
@@ -91,6 +89,7 @@ class PowerSwitch implements Interactable {
 
   use(): string {
     const on = !this.world.isPowered();
+    if (on && !this.world.hasFuse()) return "No responde. Falta el fusible en la caja.";
     this.world.setPower(on);
     return on ? "La luz general vuelve a funcionar." : "Se hace la oscuridad.";
   }
@@ -201,8 +200,7 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
     new Drawer(
       drawerFront,
       new THREE.Vector3(1, 0, 0),
-      "Hojas de registro. La última anotación es de hoy, a las 03:12. Debajo hay una llave oxidada.",
-      () => inventory.add("llave_oxidada"),
+      "Hojas de registro. La última anotación es de hoy, a las 03:12.",
     ),
   );
 
@@ -234,7 +232,7 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
   items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-0.6, 0.03, -10], Math.PI / 2));
   items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-7.6, 1.63, -10.3], Math.PI / 2));
   items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [6.0, 0.78, -12.4], Math.PI / 2));
-  items.push(addPickup(scene, inventory, "doc_admision", doc, paperMat, [6.9, 0.76, -12.4]));
+  items.push(addPickup(scene, inventory, "doc_admision", doc, paperMat, [-5.0, 0.73, -7.4]));
   items.push(addPickup(scene, inventory, "doc_guardia", doc, paperMat, [-6.6, 0.004, -18.0]));
   items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [5.1, 0.92, -24.6]));
   items.push(addPickup(scene, inventory, "pista_papel", note, paperMat, [0.6, 0.004, -0.5]));

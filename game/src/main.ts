@@ -10,6 +10,8 @@ import { InventoryUI } from "./inventory-ui";
 import { NoiseBus } from "./noise";
 import { createHidingSpots } from "./hiding";
 import { Watcher, type PlayerView } from "./watcher";
+import { createPuzzles } from "./puzzles";
+import { KeypadUI } from "./keypad-ui";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -27,6 +29,7 @@ const resumeBtn = byId<HTMLButtonElement>("resume-btn");
 const promptEl = byId<HTMLDivElement>("prompt");
 const messageEl = byId<HTMLDivElement>("message");
 const inventoryRoot = byId<HTMLDivElement>("inventory");
+const keypadRoot = byId<HTMLDivElement>("keypad");
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -50,7 +53,8 @@ const inventory = new Inventory();
 
 let started = false;
 let running = false;
-let inventoryOpen = false;
+/** Panel a pantalla completa abierto (inventario o teclado). Mientras hay uno, el mundo está parado. */
+let panelOpen: HTMLElement | null = null;
 
 let messageTimer = 0;
 function notify(text: string): void {
@@ -72,8 +76,20 @@ const { items, doors } = createInteractables({
   inventory,
   noise: (x, z, r) => noiseBus.emit(x, z, r),
 });
+
+const puzzles = createPuzzles({
+  scene,
+  rects: world.rects,
+  world,
+  inventory,
+  noise: (x, z, r) => noiseBus.emit(x, z, r),
+  doors,
+  openKeypad: () => openKeypad(),
+});
+
 const interactables = [
   ...items,
+  ...puzzles.items,
   ...createHidingSpots({ scene, rects: world.rects, player }),
 ];
 
@@ -125,33 +141,57 @@ const inventoryUI = new InventoryUI(
   },
 );
 
-function openInventory(): void {
-  if (!started || !running) return;
-  inventoryOpen = true;
+const keypadUI = new KeypadUI(
+  {
+    pad: byId<HTMLElement>("keypad-pad"),
+    display: byId<HTMLElement>("keypad-display"),
+    feedback: byId<HTMLElement>("keypad-feedback"),
+  },
+  (code) => puzzles.keypad.check(code),
+  () => {
+    closePanel();
+    notify("Puedes abrir la puerta del quirófano.");
+  },
+);
+
+function openPanel(el: HTMLElement): void {
+  panelOpen = el;
   running = false;
   promptEl.hidden = true;
-  inventoryUI.reset();
-  inventoryRoot.hidden = false;
+  el.hidden = false;
   input.releaseLock();
 }
 
-function closeInventory(): void {
-  inventoryOpen = false;
-  inventoryRoot.hidden = true;
+function closePanel(): void {
+  if (!panelOpen) return;
+  panelOpen.hidden = true;
+  panelOpen = null;
   running = true;
   input.requestLock();
+}
+
+function openInventory(): void {
+  if (!started || !running || player.hidden) return;
+  inventoryUI.reset();
+  openPanel(inventoryRoot);
+}
+
+function openKeypad(): void {
+  if (!started || !running) return;
+  keypadUI.reset();
+  openPanel(keypadRoot);
 }
 
 // Esc libera el puntero en el navegador; eso dispara onLockChange(false) y abre la pausa.
 const input = new Input(canvas, {
   onLockChange: (locked) => {
-    if (!started || inventoryOpen) return;
+    if (!started || panelOpen) return;
     running = locked;
     pauseScreen.hidden = locked;
   },
   onAction: (code) => {
-    if (inventoryOpen) {
-      if (code === "KeyI" || code === "Escape") closeInventory();
+    if (panelOpen) {
+      if (code === "Escape" || (code === "KeyI" && panelOpen === inventoryRoot)) closePanel();
       return;
     }
     if (!running) return;
