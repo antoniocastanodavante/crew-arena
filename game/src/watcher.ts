@@ -22,8 +22,6 @@ export interface WatcherDeps {
   rects: Rect[];
   doors: Door[];
   player: PlayerView;
-  /** Muerte: tras el último susto. */
-  onCatch(): void;
   /** Cada vez que aparece en la cara del jugador. Recibe el número de sustos. */
   onScare?(strikes: number): void;
 }
@@ -79,8 +77,7 @@ const STUCK_TIME = 1.2;
  */
 const MANIFEST_TIME = 1.6;
 const MANIFEST_RANGE = 8;
-const FACE_DIST = 0.9;
-const MAX_STRIKES = 3;
+const FACE_DIST = 0.7;
 const FIRST_COOLDOWN = 5;
 const COOLDOWN_MIN = 7;
 const COOLDOWN_MAX = 14;
@@ -241,22 +238,30 @@ export class Watcher {
     this.deps.onScare?.(this.strikes);
   }
 
-  /** Mientras está visible: mira al jugador y luego desaparece. */
+  /**
+   * Mientras está visible: mira al jugador desde muy cerca, con la cabeza inclinada
+   * y los ojos parpadeando, y de vez en cuando falla un fotograma. Luego desaparece.
+   */
   private updateManifest(dt: number, t: number): void {
     const p = this.deps.player.position;
     this.yaw = Math.atan2(p.x - this.x, p.z - this.z);
     this.animate(dt, t);
+
+    // Cabeza inclinada hacia abajo, mirando a la cara del jugador
+    this.rig.head.rotation.x = 0.45;
+    this.rig.head.rotation.y = 0;
+
+    // Ojos que parpadean con fuerza
+    this.rig.eyes.emissiveIntensity = 3 + Math.sin(t * 28) * 1.5;
+
+    // Fallo visual: una sola frame invisible de vez en cuando
+    this.rig.root.visible = Math.random() > 0.06;
 
     this.manifestT -= dt;
     if (this.manifestT > 0) return;
 
     this.manifestT = 0;
     this.rig.root.visible = false;
-    if (this.strikes >= MAX_STRIKES) {
-      this.reset();
-      this.deps.onCatch();
-      return;
-    }
     this.setAway();
   }
 

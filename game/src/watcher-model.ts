@@ -10,6 +10,8 @@ export interface WatcherRig {
   armR: THREE.Group;
   legL: THREE.Group;
   legR: THREE.Group;
+  /** Material de los ojos: se enciende y parpadea durante la aparición. */
+  eyes: THREE.MeshStandardMaterial;
 }
 
 /**
@@ -70,14 +72,20 @@ export function createWatcherModel(): WatcherRig {
 
   const head = new THREE.Group();
   neck.add(head);
-  const skull = add(head, new THREE.SphereGeometry(0.19, 18, 14), skin, 0, 0.25, 0);
-  skull.scale.set(0.85, 1.3, 0.9);
-  add(head, new THREE.SphereGeometry(0.03, 8, 6), eyeMat, -0.07, 0.3, 0.17);
-  add(head, new THREE.SphereGeometry(0.03, 8, 6), eyeMat, 0.07, 0.3, 0.17);
+  // Cráneo alargado, con cuencas oscuras y ojos que brillan desde dentro
+  const skull = add(head, new THREE.SphereGeometry(0.19, 18, 14), skin, 0, 0.3, 0);
+  skull.scale.set(0.74, 1.55, 0.84);
+  const socketMat = new THREE.MeshStandardMaterial({ color: "#000000", roughness: 1 });
+  for (const sx of [-0.068, 0.068]) {
+    add(head, new THREE.SphereGeometry(0.05, 10, 8), socketMat, sx, 0.36, 0.13);
+    add(head, new THREE.SphereGeometry(0.028, 8, 6), eyeMat, sx, 0.36, 0.165);
+  }
+  // Mandíbula caída, en negro
+  add(head, new THREE.BoxGeometry(0.15, 0.05, 0.16), socketMat, 0, 0.06, 0.1).rotation.x = 0.35;
 
   root.traverse((obj) => {
     if (obj instanceof THREE.Mesh) obj.castShadow = true;
   });
 
-  return { root, hips, torso, head, armL, armR, legL, legR };
+  return { root, hips, torso, head, armL, armR, legL, legR, eyes: eyeMat };
 }

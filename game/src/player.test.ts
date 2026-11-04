@@ -52,3 +52,30 @@ describe("Player hiding", () => {
     expect(player.position.z).toBeCloseTo(3);
   });
 });
+
+describe("Player health", () => {
+  it("starts at full health", () => {
+    const { player } = setup();
+    expect(player.health).toBe(100);
+  });
+
+  it("damage reports the moment of death and never goes below zero", () => {
+    const { player } = setup();
+    expect(player.damage(35)).toBe(false);
+    expect(player.damage(35)).toBe(false);
+    expect(player.damage(35)).toBe(true);
+    expect(player.health).toBe(0);
+    expect(player.damage(10)).toBe(false);
+    expect(player.health).toBe(0);
+  });
+
+  it("heal never goes above the maximum", () => {
+    const { player } = setup();
+    player.damage(35);
+    player.heal(40);
+    expect(player.health).toBe(100);
+    player.damage(70);
+    player.heal(40);
+    expect(player.health).toBe(70);
+  });
+});

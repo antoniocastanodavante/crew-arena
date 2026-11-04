@@ -274,5 +274,16 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
   items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [5.1, 0.92, -24.6]));
   items.push(addPickup(scene, inventory, "pista_papel", note, paperMat, [0.6, 0.004, -0.5]));
 
+  // Botiquines: se guardan en el inventario y se usan cuando haga falta
+  const kitMat = new THREE.MeshStandardMaterial({ color: "#e8e6e0", roughness: 0.6 });
+  const kit = new THREE.BoxGeometry(0.2, 0.1, 0.14);
+  for (const pos of [
+    [1.2, 0.05, -15.5],
+    [-3.6, 0.05, -6.0],
+    [-5.8, 0.05, -19.5],
+  ] as [number, number, number][]) {
+    items.push(addPickup(scene, inventory, "botiquin", kit, kitMat, pos));
+  }
+
   return { items, doors };
 }

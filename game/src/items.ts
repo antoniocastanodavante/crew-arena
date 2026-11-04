@@ -40,6 +40,12 @@ export const ITEMS: Record<string, ItemDef> = {
       "Nombre del paciente borrado. Hora de ingreso: 03:17. Destino: quirófano. Firma ilegible.",
     usable: false,
   },
+  botiquin: {
+    name: "Botiquín",
+    kind: "especial",
+    description: "Vendas y una jeringa. Al usarlo, recuperas 40 de salud.",
+    usable: true,
+  },
   fusible: {
     name: "Fusible",
     kind: "especial",

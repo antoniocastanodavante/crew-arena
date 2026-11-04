@@ -15,7 +15,9 @@ export interface World {
   rects: Rect[];
   /** Material de la pantalla del ordenador del despacho. */
   computerScreen: THREE.MeshStandardMaterial;
-  update(t: number): void;
+  update(t: number, dt: number): void;
+  /** Apaga las luces del techo unos segundos (al aparecer el monstruo). */
+  blackout(seconds: number): void;
   isPowered(): boolean;
   setPower(on: boolean): void;
   hasFuse(): boolean;
@@ -79,6 +81,7 @@ export function createWorld(scene: THREE.Scene): World {
   // Sin corriente al empezar: hay que meter el fusible en la caja del pasillo.
   let powered = false;
   let fuseInstalled = false;
+  let blackoutT = 0;
   registry.register(
     "world",
     () => ({ powered, fuse: fuseInstalled }),
@@ -345,8 +348,12 @@ export function createWorld(scene: THREE.Scene): World {
       fuseInstalled = true;
       powered = true;
     },
-    update(t: number): void {
-      const p = powered ? 1 : 0;
+    blackout(seconds: number): void {
+      blackoutT = Math.max(blackoutT, seconds);
+    },
+    update(t: number, dt: number): void {
+      blackoutT = Math.max(0, blackoutT - dt);
+      const p = powered && blackoutT === 0 ? 1 : 0;
       for (const f of flickers) {
         let k = 1 + 0.03 * Math.sin(t * 9 + f.phase);
         if (f.broken) {

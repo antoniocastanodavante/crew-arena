@@ -117,6 +117,31 @@ button:focus-visible {
   transition: width 0.2s linear;
 }
 
+#health-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 200px;
+  margin-bottom: 10px;
+}
+
+#health {
+  height: 8px;
+  border: 1px solid #6e6a5e;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+#health-fill {
+  height: 100%;
+  width: 100%;
+  background: #b3261e;
+  transition: width 0.25s linear;
+}
+
+#health-fill.low {
+  animation: blink 0.6s steps(2) infinite;
+}
+
 #battery-fill.low {
   background: #b3261e;
   animation: blink 0.4s steps(2) infinite;

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { createWorld } from "./world";
-import { Player } from "./player";
+import { Player, MAX_HEALTH } from "./player";
 import { Flashlight } from "./flashlight";
 import { Input } from "./input";
 import { Interactor } from "./interact";
@@ -143,18 +143,28 @@ function scareFlash(): void {
   flashEl.classList.add("go");
 }
 
+/** Salud que quita cada aparición. Con 100 de salud, tres sustos seguidos matan. */
+const SCARE_DAMAGE = 35;
+const BANDAGE_HEAL = 40;
+const healthFill = byId<HTMLDivElement>("health-fill");
+
 const watcher = new Watcher({
   scene,
   rects: world.rects,
   doors,
   player: playerView,
-  onCatch: () => {
-    sfx.hit();
-    showDeath();
-  },
   onScare: () => {
     scareFlash();
     scareShake = 0.9;
+    world.blackout(0.35);
+    // Zoom brusco que se recupera solo (el jugador vuelve al FOV normal)
+    camera.fov = 96;
+    camera.updateProjectionMatrix();
+    if (player.damage(SCARE_DAMAGE)) {
+      sfx.hit();
+      watcher.reset();
+      showDeath();
+    }
   },
 });
 noiseBus.on((x, z, r) => watcher.hear(x, z, r));
@@ -186,6 +196,12 @@ const inventoryUI = new InventoryUI(
     feedback: byId<HTMLElement>("inv-feedback"),
   },
   (id) => {
+    if (id === "botiquin") {
+      if (player.health >= MAX_HEALTH) return "Ya estás sano. Guárdalo para más tarde.";
+      if (!inventory.remove("botiquin")) return "";
+      player.heal(BANDAGE_HEAL);
+      return "Te curas. Recuperas salud.";
+    }
     if (id !== "pila" || !inventory.remove("pila")) return "";
     flashlight.recharge(40);
     return "Pila colocada. La linterna tiene más batería.";
@@ -426,6 +442,7 @@ byId<HTMLButtonElement>("endings-back").addEventListener("click", () => showMenu
 
 byId<HTMLButtonElement>("death-retry").addEventListener("click", () => {
   player.resetTo(0, 3);
+  player.health = MAX_HEALTH;
   closePanel();
   notify("Vuelves a la entrada.");
 });
@@ -527,11 +544,15 @@ function frame(): void {
   document.body.classList.toggle("tense", tension > 0.6 && !settingsReduceMotion());
 
   for (const item of interactables) item.update?.(dt);
-  world.update(t);
+  world.update(t, dt);
 
   const width = `${Math.round(flashlight.battery)}%`;
   if (batteryFill.style.width !== width) batteryFill.style.width = width;
   batteryFill.classList.toggle("low", flashlight.isLow);
+
+  const healthWidth = `${Math.round((player.health / MAX_HEALTH) * 100)}%`;
+  if (healthFill.style.width !== healthWidth) healthFill.style.width = healthWidth;
+  healthFill.classList.toggle("low", player.health < 35);
 
   renderer.render(scene, camera);
 }

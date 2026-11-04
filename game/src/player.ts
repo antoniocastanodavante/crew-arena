@@ -15,6 +15,7 @@ const MAX_PITCH = 1.45;
 const NORMAL_FOV = 72;
 const HIDE_FOV = 60;
 const TWEEN_TIME = 0.5;
+export const MAX_HEALTH = 100;
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
@@ -47,6 +48,8 @@ export class Player {
   /** Ajustes de Configuración. */
   sensitivity = 1;
   bobScale = 1;
+  /** Salud: baja con cada susto. A cero, el jugador muere. */
+  health = MAX_HEALTH;
 
   private yaw = 0;
   private pitch = 0;
@@ -61,10 +64,11 @@ export class Player {
     this.sync(0);
     registry.register(
       "player",
-      () => ({ x: this.position.x, z: this.position.z }),
+      () => ({ x: this.position.x, z: this.position.z, health: this.health }),
       (v) => {
-        const p = v as { x: number; z: number };
+        const p = v as { x: number; z: number; health: number };
         this.resetTo(p.x, p.z);
+        this.health = p.health;
       },
     );
   }
@@ -180,6 +184,17 @@ export class Player {
 
   private beginTween(): void {
     this.tween = { from: this.camera.position.clone(), t: 0 };
+  }
+
+  /** Resta salud. Devuelve true si el jugador acaba de morir. */
+  damage(amount: number): boolean {
+    if (this.health <= 0) return false;
+    this.health = Math.max(0, this.health - amount);
+    return this.health === 0;
+  }
+
+  heal(amount: number): void {
+    this.health = Math.min(MAX_HEALTH, this.health + amount);
   }
 
   /** Coloca al jugador en (x, z) sin comprobar colisiones. Saca de cualquier escondite. */
