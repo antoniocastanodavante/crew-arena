@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHADOWS</title>
+    <script type="module" crossorigin src="./assets/index-DpVOzd-D.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-4TPdLyDi.css">
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="vignette"></div>
+
+    <div id="hud" hidden>
+      <div id="battery-wrap">
+        <span>Linterna</span>
+        <div id="battery"><div id="battery-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="start-screen" class="overlay">
+      <h1>SHADOWS</h1>
+      <p class="sub">03:17. Estás en el hospital.</p>
+      <button id="start-btn" type="button">Empezar</button>
+      <p class="help">
+        WASD mover · Ratón mirar · Shift correr · Ctrl agacharse · F linterna · Esc pausa
+      </p>
+    </div>
+
+    <div id="pause-screen" class="overlay" hidden>
+      <h2>Pausa</h2>
+      <button id="resume-btn" type="button">Continuar</button>
+    </div>
+
+  </body>
+</html>
