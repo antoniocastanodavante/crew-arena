@@ -5,6 +5,8 @@ import { Flashlight } from "./flashlight";
 import { Input } from "./input";
 import { Interactor } from "./interact";
 import { createInteractables } from "./interactables";
+import { Inventory } from "./inventory";
+import { InventoryUI } from "./inventory-ui";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -21,6 +23,7 @@ const startBtn = byId<HTMLButtonElement>("start-btn");
 const resumeBtn = byId<HTMLButtonElement>("resume-btn");
 const promptEl = byId<HTMLDivElement>("prompt");
 const messageEl = byId<HTMLDivElement>("message");
+const inventoryRoot = byId<HTMLDivElement>("inventory");
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -40,9 +43,11 @@ scene.add(camera);
 const world = createWorld(scene);
 const player = new Player(camera, world.rects);
 const flashlight = new Flashlight(camera);
+const inventory = new Inventory();
 
 let started = false;
 let running = false;
+let inventoryOpen = false;
 
 let messageTimer = 0;
 function notify(text: string): void {
@@ -59,6 +64,7 @@ const interactables = createInteractables({
   rects: world.rects,
   world,
   playerPos: player.position,
+  inventory,
 });
 const interactor = new Interactor(interactables, {
   onPrompt: (text) => {
@@ -68,17 +74,55 @@ const interactor = new Interactor(interactables, {
   onMessage: notify,
 });
 
+const inventoryUI = new InventoryUI(
+  inventory,
+  {
+    grid: byId<HTMLElement>("inv-grid"),
+    name: byId<HTMLElement>("inv-name"),
+    desc: byId<HTMLElement>("inv-desc"),
+    useBtn: byId<HTMLButtonElement>("inv-use"),
+    feedback: byId<HTMLElement>("inv-feedback"),
+  },
+  (id) => {
+    if (id !== "pila" || !inventory.remove("pila")) return "";
+    flashlight.recharge(40);
+    return "Pila colocada. La linterna tiene más batería.";
+  },
+);
+
+function openInventory(): void {
+  if (!started || !running) return;
+  inventoryOpen = true;
+  running = false;
+  promptEl.hidden = true;
+  inventoryUI.reset();
+  inventoryRoot.hidden = false;
+  input.releaseLock();
+}
+
+function closeInventory(): void {
+  inventoryOpen = false;
+  inventoryRoot.hidden = true;
+  running = true;
+  input.requestLock();
+}
+
 // Esc libera el puntero en el navegador; eso dispara onLockChange(false) y abre la pausa.
 const input = new Input(canvas, {
   onLockChange: (locked) => {
-    if (!started) return;
+    if (!started || inventoryOpen) return;
     running = locked;
     pauseScreen.hidden = locked;
   },
   onAction: (code) => {
+    if (inventoryOpen) {
+      if (code === "KeyI" || code === "Escape") closeInventory();
+      return;
+    }
     if (!running) return;
     if (code === "KeyF") flashlight.toggle();
     if (code === "KeyE") interactor.use();
+    if (code === "KeyI") openInventory();
   },
 });
 

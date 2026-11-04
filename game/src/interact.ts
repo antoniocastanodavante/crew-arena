@@ -23,26 +23,29 @@ export interface InteractorOptions {
 export class Interactor {
   private readonly raycaster = new THREE.Raycaster();
   private readonly center = new THREE.Vector2(0, 0);
-  private readonly targets: THREE.Object3D[] = [];
   private readonly owners = new Map<THREE.Object3D, Interactable>();
   private current: Interactable | null = null;
 
   constructor(
-    items: Interactable[],
+    private readonly items: Interactable[],
     private readonly opts: InteractorOptions,
   ) {
     this.raycaster.far = REACH;
-    for (const item of items) {
-      for (const target of item.targets) {
-        this.targets.push(target);
-        this.owners.set(target, item);
-      }
-    }
   }
 
   update(camera: THREE.Camera): void {
+    // Se recalcula cada frame: los objetos recogidos dejan de tener objetivo.
+    this.owners.clear();
+    const targets: THREE.Object3D[] = [];
+    for (const item of this.items) {
+      for (const target of item.targets) {
+        targets.push(target);
+        this.owners.set(target, item);
+      }
+    }
+
     this.raycaster.setFromCamera(this.center, camera);
-    const hit = this.raycaster.intersectObjects(this.targets, false)[0];
+    const hit = this.raycaster.intersectObjects(targets, false)[0];
     this.current = hit ? this.owners.get(hit.object) ?? null : null;
     const label = this.current?.label() ?? null;
     this.opts.onPrompt(label ? `Pulsa E para ${label.toLowerCase()}` : null);

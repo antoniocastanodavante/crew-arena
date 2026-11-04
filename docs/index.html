@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SHADOWS</title>
-    <script type="module" crossorigin src="./assets/index-D8fXbtT6.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-hLKKL8Ma.css">
+    <script type="module" crossorigin src="./assets/index-CX_SJyoz.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CqzMRbr6.css">
   </head>
   <body>
     <canvas id="game"></canvas>
@@ -21,12 +21,26 @@
     <div id="prompt" class="hint" hidden></div>
     <div id="message" class="note" hidden></div>
 
+    <div id="inventory" class="overlay" hidden>
+      <div class="inv-panel">
+        <h2>Inventario</h2>
+        <div id="inv-grid" class="inv-grid"></div>
+        <div class="inv-detail">
+          <h3 id="inv-name"></h3>
+          <p id="inv-desc"></p>
+          <button id="inv-use" type="button" hidden>Usar</button>
+          <p id="inv-feedback" class="inv-feedback"></p>
+        </div>
+        <p class="help">I o Esc para cerrar</p>
+      </div>
+    </div>
+
     <div id="start-screen" class="overlay">
       <h1>SHADOWS</h1>
       <p class="sub">03:17. Estás en el hospital.</p>
       <button id="start-btn" type="button">Empezar</button>
       <p class="help">
-        WASD mover · Ratón mirar · Shift correr · Ctrl agacharse · F linterna · E interactuar · Esc pausa
+        WASD mover · Ratón mirar · Shift correr · Ctrl agacharse · F linterna · E interactuar · I inventario · Esc pausa
       </p>
     </div>
 

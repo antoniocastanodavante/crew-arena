@@ -41,6 +41,10 @@ export class Flashlight {
     this.on = !this.on;
   }
 
+  recharge(amount: number): void {
+    this.battery = Math.min(MAX_BATTERY, this.battery + amount);
+  }
+
   update(dt: number, t: number): void {
     if (this.on) {
       this.battery = Math.max(0, this.battery - DRAIN_PER_SEC * dt);

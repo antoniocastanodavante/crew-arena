@@ -2,10 +2,40 @@ import * as THREE from "three";
 import type { Rect, World } from "./world";
 import type { Interactable } from "./interact";
 import { Door } from "./door";
+import { ITEMS } from "./items";
+import type { Inventory } from "./inventory";
 
 const DRAWER_TRAVEL = 0.35;
 
-/** Cajón que se abre hacia fuera. El primer uso puede dar un mensaje. */
+/** Objeto que se recoge al pulsar E. Desaparece y entra en el inventario. */
+class Pickup implements Interactable {
+  private collected = false;
+
+  constructor(
+    private readonly id: string,
+    private readonly inventory: Inventory,
+    private readonly visual: THREE.Mesh,
+    private readonly hitbox: THREE.Mesh,
+  ) {}
+
+  get targets(): THREE.Object3D[] {
+    return this.collected ? [] : [this.hitbox];
+  }
+
+  label(): string | null {
+    return this.collected ? null : `recoger ${ITEMS[this.id].name.toLowerCase()}`;
+  }
+
+  use(): string | null {
+    if (this.collected) return null;
+    this.collected = true;
+    this.visual.visible = false;
+    this.inventory.add(this.id);
+    return `Has recogido: ${ITEMS[this.id].name}.`;
+  }
+}
+
+/** Cajón que se abre hacia fuera. El primer uso puede dar un mensaje y un objeto. */
 class Drawer implements Interactable {
   readonly targets: THREE.Object3D[];
   private open = false;
@@ -17,6 +47,7 @@ class Drawer implements Interactable {
     private readonly front: THREE.Mesh,
     private readonly dir: THREE.Vector3,
     private readonly firstOpenText: string,
+    private readonly onFirstOpen: () => void,
   ) {
     this.targets = [front];
     this.basePos = front.position.clone();
@@ -30,6 +61,7 @@ class Drawer implements Interactable {
     this.open = !this.open;
     if (this.open && !this.seen) {
       this.seen = true;
+      this.onFirstOpen();
       return this.firstOpenText;
     }
     return null;
@@ -99,11 +131,37 @@ export interface InteractableDeps {
   rects: Rect[];
   world: World;
   playerPos: THREE.Vector3;
+  inventory: Inventory;
+}
+
+/** Crea un objeto recogible con un hitbox invisible más grande para poder apuntarle. */
+function addPickup(
+  scene: THREE.Scene,
+  inventory: Inventory,
+  id: string,
+  visualGeo: THREE.BufferGeometry,
+  visualMat: THREE.Material,
+  pos: [number, number, number],
+  rotZ = 0,
+): Pickup {
+  const visual = new THREE.Mesh(visualGeo, visualMat);
+  visual.position.set(...pos);
+  visual.rotation.z = rotZ;
+  scene.add(visual);
+
+  const hitbox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.2, 0.3),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+  );
+  hitbox.position.set(...pos);
+  scene.add(hitbox);
+
+  return new Pickup(id, inventory, visual, hitbox);
 }
 
 /** Crea todos los objetos interactuables del hospital y los coloca en el escenario. */
 export function createInteractables(deps: InteractableDeps): Interactable[] {
-  const { scene, rects, world, playerPos } = deps;
+  const { scene, rects, world, playerPos, inventory } = deps;
   const items: Interactable[] = [];
 
   const doorMat = new THREE.MeshStandardMaterial({ color: "#4a3a2a", roughness: 0.7 });
@@ -134,7 +192,8 @@ export function createInteractables(deps: InteractableDeps): Interactable[] {
     new Drawer(
       drawerFront,
       new THREE.Vector3(1, 0, 0),
-      "Hojas de registro. La última anotación es de hoy, a las 03:12.",
+      "Hojas de registro. La última anotación es de hoy, a las 03:12. Debajo hay una llave oxidada.",
+      () => inventory.add("llave_oxidada"),
     ),
   );
 
@@ -153,6 +212,23 @@ export function createInteractables(deps: InteractableDeps): Interactable[] {
       "REGISTRO DE PACIENTES. Última entrada, 03:12: paciente 7 trasladado al sótano.",
     ),
   );
+
+  // Objetos recogibles
+  const paperMat = new THREE.MeshStandardMaterial({ color: "#d8d4c4", roughness: 1 });
+  const battery = new THREE.CylinderGeometry(0.02, 0.02, 0.07, 8);
+  const batteryMat = new THREE.MeshStandardMaterial({ color: "#c9a227", metalness: 0.4, roughness: 0.5 });
+  const doc = new THREE.BoxGeometry(0.22, 0.005, 0.3);
+  const card = new THREE.BoxGeometry(0.08, 0.01, 0.05);
+  const cardMat = new THREE.MeshStandardMaterial({ color: "#2a2f36", metalness: 0.3, roughness: 0.4 });
+  const note = new THREE.BoxGeometry(0.2, 0.005, 0.15);
+
+  items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-0.6, 0.03, -10], Math.PI / 2));
+  items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-7.6, 1.63, -10.3], Math.PI / 2));
+  items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [6.0, 0.78, -12.4], Math.PI / 2));
+  items.push(addPickup(scene, inventory, "doc_admision", doc, paperMat, [6.9, 0.76, -12.4]));
+  items.push(addPickup(scene, inventory, "doc_guardia", doc, paperMat, [-6.6, 0.004, -18.0]));
+  items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [5.1, 0.92, -24.6]));
+  items.push(addPickup(scene, inventory, "pista_papel", note, paperMat, [0.6, 0.004, -0.5]));
 
   return items;
 }

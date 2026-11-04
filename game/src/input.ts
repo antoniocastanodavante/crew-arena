@@ -49,6 +49,10 @@ export class Input {
     void this.canvas.requestPointerLock();
   }
 
+  releaseLock(): void {
+    document.exitPointerLock();
+  }
+
   isDown(code: string): boolean {
     return this.keys.has(code);
   }
