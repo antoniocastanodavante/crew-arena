@@ -46,7 +46,10 @@ export class Input {
   }
 
   requestLock(): void {
-    void this.canvas.requestPointerLock();
+    // Chrome devuelve una promesa que se rechaza si no hay gesto de usuario o el documento no vale.
+    // Sin el bloqueo el juego sigue, solo sin mirar con el ratón.
+    const result = this.canvas.requestPointerLock() as unknown;
+    if (result instanceof Promise) result.catch(() => {});
   }
 
   releaseLock(): void {
