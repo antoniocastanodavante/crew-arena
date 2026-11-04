@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run",
-    "smoke": "node tools/smoke-browser.mjs"
+    "test": "vitest run"
   },
   "repository": {
     "type": "git",

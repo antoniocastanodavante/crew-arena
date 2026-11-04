@@ -78,11 +78,6 @@ export class Player {
     return this.yaw;
   }
 
-  /** Orienta la cámara. Solo lo usa el modo de pruebas (?debug). */
-  setLook(yaw: number, pitch: number): void {
-    this.yaw = yaw;
-    this.pitch = clamp(pitch, -MAX_PITCH, MAX_PITCH);
-  }
 
   get hidingSpot(): HideSpot | null {
     return this.hideSpot;

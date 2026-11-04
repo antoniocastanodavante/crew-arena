@@ -516,33 +516,5 @@ function frame(): void {
   renderer.render(scene, camera);
 }
 
-// Modo de pruebas: ?debug expone el estado y atajos para probar sin recorrer todo el mapa.
-if (new URLSearchParams(location.search).has("debug")) {
-  const dbg = {
-    state: () => ({
-      started,
-      running,
-      panel: panelOpen?.id ?? null,
-      x: player.position.x,
-      z: player.position.z,
-      hidden: player.hidden,
-      battery: flashlight.battery,
-      flashlightOn: flashlight.on,
-      powered: world.isPowered(),
-      fuse: world.hasFuse(),
-      watcher: watcher.state,
-      items: inventory.list().map((e) => `${e.id}x${e.count}`),
-      message: messageEl.hidden ? null : messageEl.textContent,
-      ending: !endingRoot.hidden,
-    }),
-    teleport: (x: number, z: number) => player.resetTo(x, z),
-    look: (yaw: number, pitch: number) => player.setLook(yaw, pitch),
-    give: (id: string) => inventory.add(id),
-    newGame: () => startGame(true),
-    die: () => showDeath(),
-  };
-  (window as unknown as { __shadows: typeof dbg }).__shadows = dbg;
-}
-
 showMenu();
 frame();
