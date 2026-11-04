@@ -269,9 +269,10 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
   items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-0.6, 0.03, -10], Math.PI / 2));
   items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [-7.6, 1.63, -10.3], Math.PI / 2));
   items.push(addPickup(scene, inventory, "pila", battery, batteryMat, [6.0, 0.78, -12.4], Math.PI / 2));
-  items.push(addPickup(scene, inventory, "doc_admision", doc, paperMat, [-5.0, 0.73, -7.4]));
+  // Ficha de admisión y tarjeta: en la habitación A, junto a la entrada desde el pasillo
+  items.push(addPickup(scene, inventory, "doc_admision", doc, paperMat, [-3.2, 0.004, -7.0]));
   items.push(addPickup(scene, inventory, "doc_guardia", doc, paperMat, [-6.6, 0.004, -18.0]));
-  items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [5.1, 0.92, -24.6]));
+  items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [-3.2, 0.005, -9.5]));
   items.push(addPickup(scene, inventory, "pista_papel", note, paperMat, [0.6, 0.004, -0.5]));
 
   // Botiquines: se guardan en el inventario y se usan cuando haga falta
@@ -279,7 +280,7 @@ export function createInteractables(deps: InteractableDeps): InteractableSet {
   const kit = new THREE.BoxGeometry(0.2, 0.1, 0.14);
   for (const pos of [
     [1.2, 0.05, -15.5],
-    [-3.6, 0.05, -6.0],
+    [5.1, 0.95, -25.4],
     [-5.8, 0.05, -19.5],
   ] as [number, number, number][]) {
     items.push(addPickup(scene, inventory, "botiquin", kit, kitMat, pos));

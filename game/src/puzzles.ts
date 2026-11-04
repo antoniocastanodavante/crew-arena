@@ -102,7 +102,7 @@ class FuseBox implements Interactable {
 
   use(): string | null {
     if (this.world.hasFuse()) return null;
-    if (!this.inventory.remove("fusible")) return "La caja está vacía. Falta un fusible.";
+    if (!this.inventory.remove("fusible")) return "La caja está vacía. Falta un fusible. Quizá lo hayas visto en el laboratorio.";
     this.world.installFuse();
     sfx.metal();
     return "El fusible encaja. Vuelve la luz.";
@@ -254,6 +254,15 @@ export function createPuzzles(deps: PuzzleDeps): PuzzleSet {
   items.push(keypad);
   doorD.setGate(() => (keypad.solved ? null : "Un teclado junto a la puerta pide un código de cuatro cifras."));
 
+  // Cartel junto al teclado con la pista del código
+  visual(scene, new THREE.BoxGeometry(0.02, 0.3, 0.45), kbMat, 1.86, 1.75, -21.9);
+  items.push(
+    new Sign(
+      hitbox(scene, 1.8, 1.75, -21.9, 0.3, 0.4, 0.5),
+      "ACCESO RESTRINGIDO. El código de cuatro cifras es la hora de ingreso del paciente.",
+    ),
+  );
+
   // 2. Caja de fusibles junto al interruptor
   visual(scene, new THREE.BoxGeometry(0.04, 0.3, 0.25), kbMat, -1.87, 1.0, 0.3);
   items.push(new FuseBox(hitbox(scene, -1.85, 1.0, 0.3, 0.2, 0.3, 0.3), inventory, world));
@@ -263,7 +272,9 @@ export function createPuzzles(deps: PuzzleDeps): PuzzleSet {
 
   // Puertas con condición
   doorB.setGate(() => (inventory.remove("llave_oxidada") ? null : "La puerta de seguridad está cerrada con llave."));
-  doorC.setGate(() => (inventory.remove("tarjeta_seguridad") ? null : "Cerrada. Hace falta una tarjeta de seguridad."));
+  doorC.setGate(() =>
+    inventory.remove("tarjeta_seguridad") ? null : "Cerrada. Hace falta una tarjeta de seguridad. Alguien dejó una en la habitación A.",
+  );
 
   // 4. Laboratorio: banco, tubos y cartel
   const metal = new THREE.MeshStandardMaterial({ color: "#8c949a", metalness: 0.6, roughness: 0.45 });
