@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Rect, World } from "./world";
 import type { Interactable } from "./interact";
-import { Door } from "./door";
+import { Door, type NoiseEmitter } from "./door";
 import { ITEMS } from "./items";
 import type { Inventory } from "./inventory";
 
@@ -132,6 +132,12 @@ export interface InteractableDeps {
   world: World;
   playerPos: THREE.Vector3;
   inventory: Inventory;
+  noise: NoiseEmitter;
+}
+
+export interface InteractableSet {
+  items: Interactable[];
+  doors: Door[];
 }
 
 /** Crea un objeto recogible con un hitbox invisible más grande para poder apuntarle. */
@@ -160,9 +166,10 @@ function addPickup(
 }
 
 /** Crea todos los objetos interactuables del hospital y los coloca en el escenario. */
-export function createInteractables(deps: InteractableDeps): Interactable[] {
-  const { scene, rects, world, playerPos, inventory } = deps;
+export function createInteractables(deps: InteractableDeps): InteractableSet {
+  const { scene, rects, world, playerPos, inventory, noise } = deps;
   const items: Interactable[] = [];
+  const doors: Door[] = [];
 
   const doorMat = new THREE.MeshStandardMaterial({ color: "#4a3a2a", roughness: 0.7 });
   const doorSpecs = [
@@ -172,7 +179,9 @@ export function createInteractables(deps: InteractableDeps): Interactable[] {
     { axis: "x" as const, fixed: 2, from: -24.6, to: -23.4, swing: 1 as const },
   ];
   for (const spec of doorSpecs) {
-    items.push(new Door(scene, rects, playerPos, doorMat, spec));
+    const door = new Door(scene, rects, playerPos, doorMat, spec, noise);
+    doors.push(door);
+    items.push(door);
   }
 
   // Interruptor general en la pared izquierda del pasillo
@@ -230,5 +239,5 @@ export function createInteractables(deps: InteractableDeps): Interactable[] {
   items.push(addPickup(scene, inventory, "tarjeta_seguridad", card, cardMat, [5.1, 0.92, -24.6]));
   items.push(addPickup(scene, inventory, "pista_papel", note, paperMat, [0.6, 0.004, -0.5]));
 
-  return items;
+  return { items, doors };
 }

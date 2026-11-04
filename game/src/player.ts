@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Input } from "./input";
 import type { Rect } from "./world";
+import { circleBlocked } from "./collision";
 
 const RADIUS = 0.3;
 const STAND_H = 1.65;
@@ -21,6 +22,8 @@ export class Player {
   moving = false;
   sprinting = false;
   crouching = false;
+  /** Escondido: no se mueve y el monstruo casi no lo percibe. Lo activará el sistema de escondites. */
+  hidden = false;
 
   private yaw = 0;
   private pitch = 0;
@@ -76,21 +79,14 @@ export class Player {
     this.camera.rotation.set(this.pitch, this.yaw, 0);
   }
 
-  private moveTo(x: number, z: number): void {
-    if (this.blocked(x, z)) return;
-    this.position.x = x;
-    this.position.z = z;
+  /** Coloca al jugador en (x, z) sin comprobar colisiones. Lo usa el reinicio tras ser atrapado. */
+  resetTo(x: number, z: number): void {
+    this.position.set(x, 0, z);
   }
 
-  /** Comprueba si un círculo de radio RADIUS en (x, z) toca alguna caja. */
-  private blocked(x: number, z: number): boolean {
-    for (const r of this.rects) {
-      const cx = clamp(x, r.minX, r.maxX);
-      const cz = clamp(z, r.minZ, r.maxZ);
-      const dx = x - cx;
-      const dz = z - cz;
-      if (dx * dx + dz * dz < RADIUS * RADIUS) return true;
-    }
-    return false;
+  private moveTo(x: number, z: number): void {
+    if (circleBlocked(x, z, RADIUS, this.rects, false)) return;
+    this.position.x = x;
+    this.position.z = z;
   }
 }

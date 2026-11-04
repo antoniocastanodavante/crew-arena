@@ -7,6 +7,8 @@ import { Interactor } from "./interact";
 import { createInteractables } from "./interactables";
 import { Inventory } from "./inventory";
 import { InventoryUI } from "./inventory-ui";
+import { NoiseBus } from "./noise";
+import { Watcher, type PlayerView } from "./watcher";
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -59,13 +61,41 @@ function notify(text: string): void {
   }, 3500);
 }
 
-const interactables = createInteractables({
+const noiseBus = new NoiseBus();
+
+const { items: interactables, doors } = createInteractables({
   scene,
   rects: world.rects,
   world,
   playerPos: player.position,
   inventory,
+  noise: (x, z, r) => noiseBus.emit(x, z, r),
 });
+
+const playerView: PlayerView = {
+  position: player.position,
+  get hidden() {
+    return player.hidden;
+  },
+  get flashlightOn() {
+    return flashlight.on;
+  },
+};
+
+const watcher = new Watcher({
+  scene,
+  rects: world.rects,
+  doors,
+  player: playerView,
+  onCatch: () => {
+    player.resetTo(0, 3);
+    notify("Te ha atrapado. Vuelves a la entrada.");
+  },
+});
+noiseBus.on((x, z, r) => watcher.hear(x, z, r));
+
+// Correr hace ruido cada poco. El monstruo lo oye dentro de 10 m.
+let footstepTimer = 0;
 const interactor = new Interactor(interactables, {
   onPrompt: (text) => {
     promptEl.textContent = text ?? "";
@@ -154,6 +184,14 @@ function frame(): void {
     player.update(dt, input);
     flashlight.update(dt, t);
     interactor.update(camera);
+
+    footstepTimer = player.sprinting ? footstepTimer + dt : 0;
+    if (footstepTimer > 0.6) {
+      footstepTimer = 0;
+      noiseBus.emit(player.position.x, player.position.z, 10);
+    }
+
+    watcher.update(dt, t);
   }
   for (const item of interactables) item.update?.(dt);
   world.update(t);

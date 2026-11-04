@@ -14,7 +14,7 @@ function setup(px: number, pz: number) {
     from: -8.6,
     to: -7.4,
     swing: 1,
-  });
+  }, () => {});
   return { door, rects, scene };
 }
 

@@ -6,6 +6,8 @@ export interface Rect {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** Puerta cerrada: el monstruo puede atravesarla abriéndola. */
+  door?: boolean;
 }
 
 export interface World {
