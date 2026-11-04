@@ -539,6 +539,7 @@ if (new URLSearchParams(location.search).has("debug")) {
     look: (yaw: number, pitch: number) => player.setLook(yaw, pitch),
     give: (id: string) => inventory.add(id),
     newGame: () => startGame(true),
+    die: () => showDeath(),
   };
   (window as unknown as { __shadows: typeof dbg }).__shadows = dbg;
 }
